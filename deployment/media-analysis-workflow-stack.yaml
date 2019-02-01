@@ -1,0 +1,2 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution workflow management resources using Amazon Elasticsearch.
