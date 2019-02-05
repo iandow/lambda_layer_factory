@@ -1,2 +1,148 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution workflow management resources using Amazon Elasticsearch.
+
+Parameters:
+    StateMachineArn:
+        Type: String
+        Description: "ARN of the solution state machine"
+
+Mappings:
+    SourceCode:
+        General:
+            S3Bucket: '%%BUCKET_NAME%%'
+            KeyPrefix: "media-analysis-solution/%%VERSION%%"
+
+Resources:
+  # IAM Roles
+  StepFunctionsServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - !Join ["", ["states.", Ref: "AWS::Region", ".amazonaws.com" ]]
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-stepfunctions-service-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !Join ["", ["arn:aws:lambda:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":", "function:*" ]]
+
+  StageExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: !Sub "${AWS::StackName}-stage-execution-lambda-role"
+          PolicyDocument:
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:", Ref: "AWS::StackName","-*"]]
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource:
+                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "WorkflowTable"]]
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+
+  # Services - Dynamodb
+  WorkflowTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: name
+        AttributeType: S
+      - AttributeName: "createTime"
+        AttributeType: "N"
+      KeySchema:
+      - AttributeName: name
+        KeyType: HASH
+      - AttributeName: createTime
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Join ["", [Ref: "AWS::StackName", "Workflow"]]
+  
+  StageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: name
+        AttributeType: S
+      - AttributeName: createTime
+        AttributeType: N
+      KeySchema:
+      - AttributeName: name
+        KeyType: HASH
+      - AttributeName: createTime
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Join ["", [Ref: "AWS::StackName", "Stage"]]
+
+  # Services - Lambda
+  ExecuteStage:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-execute-stage
+      Description: Executes the state machine for the given stage using the configuration for the provided workflow
+      Handler: index.handler
+      Role: !GetAtt StageExecutionRole.Arn
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "media-analysis-workflow.zip"]]
+      Runtime:  python3.6
+      Timeout: 120
+      Environment:
+        Variables:
+          WorkflowTable: !Ref WorkflowTable
+
+Outputs:
+  WorkflowTable:
+    Description: Workflow definition table
+    Value: !Ref WorkflowTable
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", WorkflowTable ] ]
+  StageTable:
+    Description: Stage definition table
+    Value: !Ref StageTable
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", StageTable ] ]

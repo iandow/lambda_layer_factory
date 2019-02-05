@@ -63,6 +63,20 @@ replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-api-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-api-stack.template"
 
+# Copy workflow template to dist directory and update bucket name
+echo "cp $template_dir/media-analysis-workflow-stack.yaml $dist_dir/media-analysis-workflow-stack.template"
+cp "$template_dir/media-analysis-workflow-stack.yaml" "$dist_dir/media-analysis-workflow-stack.template"
+
+echo "Updating code source bucket in template with `$1`"
+replace="s/%%BUCKET_NAME%%/$1/g"
+echo "sed -i '' -e $replace $dist_dir/media-analysis-workflow-stack.template"
+sed -i '' -e $replace "$dist_dir/media-analysis-workflow-stack.template"
+
+echo "Replacing solution version in template with `$2`"
+replace="s/%%VERSION%%/$2/g"
+echo "sed -i '' -e $replace $dist_dir/media-analysis-workflow-stack.template"
+sed -i '' -e $replace "$dist_dir/media-analysis-workflow-stack.template"
+
 # Copy storage template to dist directory and update bucket name
 echo "cp $template_dir/media-analysis-storage-stack.yaml $dist_dir/media-analysis-storage-stack.template"
 cp "$template_dir/media-analysis-storage-stack.yaml" "$dist_dir/media-analysis-storage-stack.template"
@@ -100,6 +114,18 @@ npm install
 npm run build
 npm run zip
 cp "./dist/media-analysis-helper.zip" "$dist_dir/media-analysis-helper.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Workflow Function"
+echo "------------------------------------------------------------------------------"
+echo "Building Workflow Lambda function"
+cd "$source_dir/workflow" || exit
+
+mkdir dist
+rm ./dist/*
+zip -g dist/media-analysis-workflow.zip workflow.py
+
+cp "./dist/media-analysis-workflow.zip" "$dist_dir/media-analysis-workflow.zip"
 
 echo "------------------------------------------------------------------------------"
 echo "Website"

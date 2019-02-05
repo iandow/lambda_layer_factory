@@ -2,9 +2,11 @@
   "version": "2.0",
   "app_name": "workflow-api",
   "environment_variables": {
-    "RULEWEB_RULETABLE": "ruleweb-RulesTable",
-    "VODONAWS_DYNAMODBTABLE": "RE-vod",
-    "VODONAWS_SOURCE": "re-vod-source-i9nbhrubiuqn"
+    "WORKFLOW_TABLE_NAME":"mas-workflowWorkflow",
+    "STAGE_TABLE_NAME":"mas-workflowStage",
+    "STAGE_EXECUTION_LAMBDA_ARN":"arn:aws:lambda:us-east-1:526662735483:function:mas-workflow-execute-stage",
+    "STAGE_EXECUTION_ROLE_ARN":"arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW"
+
     },
   "stages": {
     "dev": {
