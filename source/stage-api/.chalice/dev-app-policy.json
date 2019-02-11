@@ -27,16 +27,6 @@
             "Resource": "*"
         },
         {
-            "Action": [
-                "sqs:*"
-            ],
-            "Resource": [
-                "*"
-            ],
-            "Effect": "Allow",
-            "Sid": "SQS"
-        },
-        {
             "Effect": "Allow",
             "Action": [ 
               "iam:PassRole"

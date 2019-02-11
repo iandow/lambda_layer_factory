@@ -1,11 +1,8 @@
-{
+
   "version": "2.0",
-  "app_name": "workflow-api",
+  "app_name": "stage-api",
   "environment_variables": {
-    "WORKFLOW_TABLE_NAME":"mas-workflowWorkflow",
     "STAGE_TABLE_NAME":"mas-workflowStage",
-    "WORKFLOW_EXECUTION_TABLE_NAME":"mas-workflowWorkflowExecution",
-    "STAGE_EXECUTION_LAMBDA_ARN":"arn:aws:lambda:us-east-1:526662735483:function:mas-workflow-execute-stage",
     "STAGE_EXECUTION_ROLE_ARN":"arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW"
 
     },
@@ -14,6 +11,7 @@
       "api_gateway_stage": "api",
       "autogen_policy": false,
       "iam_policy_file": "dev-app-policy.json"
+      
     }
   }
 }

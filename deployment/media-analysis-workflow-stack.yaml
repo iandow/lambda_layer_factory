@@ -88,13 +88,9 @@ Resources:
       AttributeDefinitions:
       - AttributeName: name
         AttributeType: S
-      - AttributeName: "createTime"
-        AttributeType: "N"
       KeySchema:
       - AttributeName: name
         KeyType: HASH
-      - AttributeName: createTime
-        KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: '5'
         WriteCapacityUnits: '5'
@@ -106,18 +102,49 @@ Resources:
       AttributeDefinitions:
       - AttributeName: name
         AttributeType: S
-      - AttributeName: createTime
-        AttributeType: N
       KeySchema:
       - AttributeName: name
         KeyType: HASH
-      - AttributeName: createTime
-        KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: '5'
         WriteCapacityUnits: '5'
       TableName: !Join ["", [Ref: "AWS::StackName", "Stage"]]
 
+  WorkflowExecutionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Join ["", [Ref: "AWS::StackName", "WorkflowExecution"]]
+
+    
+  # Services - SQS
+
+  PreprocessQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: Preprocess
+      VisibilityTimeout: 60
+  
+  AnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: Analysis
+      VisibilityTimeout: 60
+
+  PostprocessQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: Postprocess
+      VisibilityTimeout: 60
+      
   # Services - Lambda
   ExecuteStage:
     Type: AWS::Lambda::Function
@@ -146,3 +173,23 @@ Outputs:
     Value: !Ref StageTable
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", StageTable ] ]
+  WorkflowExecutionTable:
+    Description: Workflow execution table
+    Value: !Ref WorkflowExecutionTable
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", WorkflowExecutionTable ] ]
+  PreprocessQueue:
+    Description: Work queue for Preprocess stage
+    Value: !GetAtt PreprocessQueue.Arn
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", PreprocessQueueArn ] ]
+  AnalysisQueue:
+    Description: Work queue for ANalysis stage
+    Value: !GetAtt AnalysisQueue.Arn
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", AnalysisQueueArn ] ]
+  PostprocessQueue:
+    Description: Work queue for Postprocess stage
+    Value: !GetAtt AnalysisQueue.Arn
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", PostprocessQueueArn ] ]
