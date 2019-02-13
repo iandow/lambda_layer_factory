@@ -17,6 +17,8 @@ if [ -z "$1" ] || [ -z "$2" ]; then
     exit 1
 fi
 
+
+
 # Get reference for all important folders
 template_dir="$PWD"
 dist_dir="$template_dir/dist"
@@ -39,12 +41,12 @@ echo "--------------------------------------------------------------------------
 echo "cp $template_dir/media-analysis-deploy.yaml $dist_dir/media-analysis-deploy.template"
 cp "$template_dir/media-analysis-deploy.yaml" "$dist_dir/media-analysis-deploy.template"
 
-echo "Updating code source bucket in template with `$1`"
+echo "Updating code source bucket in template with '$1'"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-deploy.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-deploy.template"
 
-echo "Replacing solution version in template with `$2`"
+echo "Replacing solution version in template with '$2'"
 replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-deploy.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-deploy.template"
@@ -53,26 +55,28 @@ sed -i '' -e $replace "$dist_dir/media-analysis-deploy.template"
 echo "cp $template_dir/media-analysis-api-stack.yaml $dist_dir/media-analysis-api-stack.template"
 cp "$template_dir/media-analysis-api-stack.yaml" "$dist_dir/media-analysis-api-stack.template"
 
-echo "Updating code source bucket in template with `$1`"
+echo "Updating code source bucket in template with '$1'"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-api-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-api-stack.template"
 
-echo "Replacing solution version in template with `$2`"
+echo "Replacing solution version in template with '$2'"
 replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-api-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-api-stack.template"
 
 # Copy workflow template to dist directory and update bucket name
+echo "Replacing solution version in template with '$2'"
+replace="s/%%VERSION%%/$2/g"
 echo "cp $template_dir/media-analysis-workflow-stack.yaml $dist_dir/media-analysis-workflow-stack.template"
 cp "$template_dir/media-analysis-workflow-stack.yaml" "$dist_dir/media-analysis-workflow-stack.template"
 
-echo "Updating code source bucket in template with `$1`"
+echo "Updating code source bucket in template with '$1'"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-workflow-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-workflow-stack.template"
 
-echo "Replacing solution version in template with `$2`"
+echo "Replacing solution version in template with '$2'"
 replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-workflow-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-workflow-stack.template"
@@ -84,6 +88,29 @@ cp "$template_dir/media-analysis-storage-stack.yaml" "$dist_dir/media-analysis-s
 # Copy state machine template to dist directory
 echo "cp $template_dir/media-analysis-state-machine-stack.yaml $dist_dir/media-analysis-state-machine-stack.template"
 cp "$template_dir/media-analysis-state-machine-stack.yaml" "$dist_dir/media-analysis-state-machine-stack.template"
+
+echo "------------------------------------------------------------------------------"
+echo "Workflow API Stack"
+echo "------------------------------------------------------------------------------"
+echo "Building Workflow Lambda function"
+cd "$source_dir/workflow-api" || exit
+
+bucket="$1-us-east-1"
+prefix="media-analysis-solution/$2"
+
+mkdir dist
+rm ./dist/*
+
+chalice package dist
+./chalice-fix-inputs.py
+aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/workflowapi.yaml" --profile default
+./sam-translate.py
+
+echo "cp ./dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml"
+cp dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml
+
+echo "cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template"
+cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template
 
 echo "------------------------------------------------------------------------------"
 echo "Analysis Function"
@@ -126,6 +153,10 @@ rm ./dist/*
 zip -g dist/media-analysis-workflow.zip workflow.py
 
 cp "./dist/media-analysis-workflow.zip" "$dist_dir/media-analysis-workflow.zip"
+
+
+
+
 
 echo "------------------------------------------------------------------------------"
 echo "Website"

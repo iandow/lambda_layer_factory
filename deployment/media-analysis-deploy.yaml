@@ -258,6 +258,13 @@ Resources:
             destS3Key: "assets/media_analysis_config.js"
             customAction: "putConfig"
 
+    MediaAnalysisWorkflowStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-stack.template"]]
+    
+
+    
     MediaAnalysisStorageStack:
         Type: "AWS::CloudFormation::Stack"
         Properties:
@@ -266,6 +273,16 @@ Resources:
                 Size: !Ref Size
                 DomainName: media-analysis
 
+    MediaAnalysisWorkflowApiStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-api-stack.template"]]
+            Parameters:
+                StageExecutionQueueUrl: !GetAtt MediaAnalysisWorkflowStack.Outputs.StageExecutionQueue
+                StageTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.StageTable
+                WorkflowExecutionTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.WorkflowExecutionTable
+                WorkflowTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.WorkflowTable
+    
     MediaAnalysisStateMachineStack:
         Type: "AWS::CloudFormation::Stack"
         Properties:
@@ -605,3 +622,7 @@ Outputs:
     MediaAnalysisIdentityPool:
         Description: "Media Analysis Identity Pool"
         Value: !Ref MediaAnalysisIdentityPool
+    #MediaAnalysisWorkflowApiEndpoint:
+    #    Description: "Media Analysis Workflow API Gateway Endpoint"
+    #    Value: !Join ["", ["https://",!GetAtt MediaAnalysisWOrkflowApiStack.Outputs.ApiId, ".execute-api.", !Ref "AWS::Region", ".amazonaws.com/prod"]]
+    

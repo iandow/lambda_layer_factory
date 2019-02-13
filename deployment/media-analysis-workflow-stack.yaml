@@ -1,11 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution workflow management resources using Amazon Elasticsearch.
 
-Parameters:
-    StateMachineArn:
-        Type: String
-        Description: "ARN of the solution state machine"
-
 Mappings:
     SourceCode:
         General:
@@ -145,10 +140,10 @@ Resources:
       QueueName: Postprocess
       VisibilityTimeout: 60
   
-  ExecuteStageQueue:
+  StageExecutionQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: ExecuteStage
+      QueueName: StageExecution
       VisibilityTimeout: 60
   
       
@@ -197,11 +192,11 @@ Outputs:
       Name: !Join [ ":", [ !Ref "AWS::StackName", AnalysisQueue ] ]
   PostprocessQueue:
     Description: Work queue for Postprocess stage
-    Value: !Ref AnalysisQueue.Arn
+    Value: !Ref PostprocessQueue
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", PostprocessQueue ] ]
-  ExecuteStageQueue:
+  StageExecutionQueue:
     Description: Work queue for stage execution
-    Value: !Ref ExecuteStageQueue.Arn
+    Value: !Ref StageExecutionQueue
     Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", ExecuteStageQueue ] ]
+      Name: !Join [ ":", [ !Ref "AWS::StackName", StageExecutionQueue ] ]

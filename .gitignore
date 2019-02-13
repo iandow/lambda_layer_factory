@@ -6,3 +6,4 @@ source/web_site/build/
 package-lock.json
 
 scratch/
+deployment/build.sh
