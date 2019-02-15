@@ -20,7 +20,7 @@
     },
     "Start MediaConvert": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:764127651952:function:MediaAnalysis-MediaAnalysisFunction-4NLEQXQPOIVS",
+      "Resource": "$your_preprocess_lambda_arn",
       "InputPath": "$",
       "ResultPath": "$.mediaConvert",
       "Next": "Did MediaConvert Start"
@@ -50,7 +50,7 @@
     },
     "Get MediaConvert Status": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:764127651952:function:MediaAnalysis-MediaAnalysisFunction-4NLEQXQPOIVS",
+      "Resource": "$your_preprocess_lambda_arn",
       "InputPath": "$",
       "ResultPath": "$",
       "Next": "Did MediaConvert Complete"
@@ -75,10 +75,31 @@
       "Type": "Fail"
     },
     "Job Succeeded": {
-      "Type": "Succeed"
+      "Type": "Pass",
+      "Result": {
+        "status": "complete"
+      },
+      "ResultPath": "$.stageStatus",
+      "Next": "Update Key"
+    },
+    "Update Key": {
+      "Type": "Pass",
+      "InputPath": "$.key", 
+      "ResultPath": "$.outputs.key",
+      "Next": "Update Destination"
+    },
+    "Update Destination": {
+      "Type": "Pass",
+      "InputPath": "$.mediaConvert.data.Job.Settings.OutputGroups[0].OutputGroupSettings.FileGroupSettings.Destination", 
+      "ResultPath": "$.outputs.destination",
+      "Next": "Update File Type"
+    },
+    "Update File Type": {
+      "Type": "Pass",
+      "InputPath": "$.mediaConvert.data.Job.Settings.OutputGroups[0].Outputs[0].Extension", 
+      "ResultPath": "$.outputs.file_type",
+      "End": true
     }
   }
 }
 
-
-    
