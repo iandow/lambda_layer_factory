@@ -89,6 +89,10 @@ cp "$template_dir/media-analysis-storage-stack.yaml" "$dist_dir/media-analysis-s
 echo "cp $template_dir/media-analysis-state-machine-stack.yaml $dist_dir/media-analysis-state-machine-stack.template"
 cp "$template_dir/media-analysis-state-machine-stack.yaml" "$dist_dir/media-analysis-state-machine-stack.template"
 
+# Copy state machine template to dist directory
+echo "cp $template_dir/media-analysis-preprocess-state-machine-stack.yaml $dist_dir/media-analysis-preprocess-state-machine-stack.template"
+cp "$template_dir/media-analysis-preprocess-state-machine-stack.yaml" "$dist_dir/media-analysis-preprocess-state-machine-stack.template"
+
 echo "------------------------------------------------------------------------------"
 echo "Workflow API Stack"
 echo "------------------------------------------------------------------------------"
@@ -121,6 +125,26 @@ npm install
 npm run build
 npm run zip
 cp "./dist/media-analysis-function.zip" "$dist_dir/media-analysis-function.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Analysis2 Function"
+echo "------------------------------------------------------------------------------"
+echo "Building Analysis Lambda function"
+cd "$source_dir/analysis2" || exit
+npm install
+npm run build
+npm run zip
+cp "./dist/media-analysis-function2.zip" "$dist_dir/media-analysis-function2.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Preprocess Function"
+echo "------------------------------------------------------------------------------"
+echo "Building Preprocess Lambda function"
+cd "$source_dir/preprocess" || exit
+npm install
+npm run build
+npm run zip
+cp "./dist/media-analysis-preprocess-function.zip" "$dist_dir/media-analysis-preprocess-function.zip"
 
 echo "------------------------------------------------------------------------------"
 echo "API Function"

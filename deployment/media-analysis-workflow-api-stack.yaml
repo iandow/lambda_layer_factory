@@ -547,7 +547,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -592,7 +592,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.complete_stage_execution_lambda",
         "MemorySize": 128,
@@ -637,7 +637,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -682,7 +682,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.get_stage_for_execution_lambda",
         "MemorySize": 128,
@@ -727,7 +727,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.start_stage_execution_lambda",
         "MemorySize": 128,
@@ -772,7 +772,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/d05d2a2d96f04ac6d4c1541406d2542a"
+          "S3Key": "media-analysis-solution/v2.0.4/f34bed7e730f4682266f8c86c5800792"
         },
         "Handler": "app.test_execute_stage_lambda",
         "MemorySize": 128,

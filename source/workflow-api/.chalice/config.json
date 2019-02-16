@@ -2,10 +2,10 @@
   "version": "2.0",
   "app_name": "workflow-api",
   "environment_variables": {
-    "WORKFLOW_TABLE_NAME":"mas-workflowWorkflow",
-    "STAGE_TABLE_NAME":"mas-workflowStage",
-    "WORKFLOW_EXECUTION_TABLE_NAME":"mas-workflowWorkflowExecution",
-    "STAGE_EXECUTION_QUEUE_URL": "ttps://sqs.us-east-1.amazonaws.com/526662735483/ExecuteStage"
+    "WORKFLOW_TABLE_NAME":"mascode-MediaAnalysisWorkflowStack-1JPFQWGUGC9GOWorkflow",
+    "STAGE_TABLE_NAME":"mascode-MediaAnalysisWorkflowStack-1JPFQWGUGC9GOStage",
+    "WORKFLOW_EXECUTION_TABLE_NAME":"mascode-MediaAnalysisWorkflowStack-1JPFQWGUGC9GOWorkflowExecution",
+    "STAGE_EXECUTION_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/526662735483/StageExecution"
 
     },
   "stages": {

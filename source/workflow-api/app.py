@@ -27,6 +27,11 @@ STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 
+# FIXME - need create stage API and custom resource
+PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
+ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
+POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
+
 # DynamoDB
 DYNAMO_CLIENT = boto3.client("dynamodb")
 DYNAMO_RESOURCE = boto3.resource("dynamodb")
@@ -47,16 +52,19 @@ DEFAULT_WORKFLOW_SQS = {
         "Preprocess": {
             "Type": "NestedQueue",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
+            "StateMachine": PREPROCESS_STATE_MACHINE_ARN,
             "Next": "Analysis"
         },
         "Analysis": {
             "Type": "NestedQueue",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
+            "StateMachine": ANALYSIS_STATE_MACHINE_ARN,
             "Next": "Postprocess"
         },
         "Postprocess": {
             "Type": "NestedQueue",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
+            "StateMachine": POSTPROCESS_STATE_MACHINE_ARN,
             "End": True
         }
     }
@@ -74,7 +82,6 @@ STAGE_STATUS_ERROR = "Error"
 STAGE_STATUS_COMPLETE = "Complete"
 
 # Helper class to convert a DynamoDB item to JSON.
-
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
@@ -111,7 +118,9 @@ def results_pager(list_function, list_locator, attr_transform):
 def index():
     return {'hello': 'world'}
 
+'''
 
+'''
 # Build a workflow orchestrated with queues
 # In:
 #    {
@@ -167,6 +176,24 @@ def create_workflow():
 
     return workflow
 
+def initialize_workflow_execution(workflow, workflow_configuration):
+
+    for stage, configuration in workflow_configuration.items():
+
+        # Override default configuration with passed in configuration
+        if "stageConfiguration" in workflow_configuration:
+            if stage in workflow["Stages"]:
+                workflow["Stages"][stage]["Configuration"] = configuration
+            else:
+                workflow = None
+                raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
+
+    for stage in workflow["Stages"]:
+        workflow["Stages"][stage]["status"] = STAGE_STATUS_NOT_STARTED
+        workflow["Stages"][stage]["metrics"] = {}
+
+    return workflow
+
 # Build a stage
 # In:
 #    {
@@ -214,25 +241,6 @@ def create_stage():
         logger.info("Exception {}".format(e))
         workflow = None
         raise ChaliceViewError("Exception '%s'" % e)
-
-    return workflow
-
-
-def initialize_workflow_execution(workflow, workflow_configuration):
-
-    for stage, configuration in workflow_configuration.items():
-
-        # Override default configuration with passed in configuration
-        if "stageConfiguration" in workflow_configuration:
-            if stage in workflow["Stages"]:
-                workflow["Stages"][stage]["Configuration"] = configuration
-            else:
-                workflow = None
-                raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
-
-    for stage in workflow["Stages"]:
-        workflow["Stages"][stage]["status"] = STAGE_STATUS_NOT_STARTED
-        workflow["Stages"][stage]["metrics"] = {}
 
     return workflow
 
@@ -380,8 +388,12 @@ def start_first_stage_execution(trigger, workflow_execution):
                 workflow_execution["workflow"]["Stages"][current_stage]))
 
             workitem = {
-                "workflow_execution_id": workflow_execution["id"]
+                "workflow_execution_id": workflow_execution["id"],
+                "stage": workflow_execution["workflow"]["Stages"][current_stage]
             }
+
+            print("QUEUE workitem:")
+            print(json.dumps(workitem))
 
             response = SQS_CLIENT.send_message(
                 QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
@@ -414,9 +426,7 @@ def lambda_arn(name):
 
 @app.lambda_function()
 def test_execute_stage_lambda(event, context):
-    stage = {"name": "foo"}
-    step_function_execution_arn = "DUMMY:STEPFUNCTION:ARN"
-
+    
     try:
         print("EVENT")
         print(json.dumps(event))
@@ -428,40 +438,79 @@ def test_execute_stage_lambda(event, context):
         workflow_execution_id = message["workflow_execution_id"]
 
         stage = get_stage_for_execution("workflow", workflow_execution_id)
+        stage["workflow_execution_id"] = workflow_execution_id 
 
-        print("GET STAGE AND EXECUTE STAGE STEP FUNCTION")
+        # FIXME check for duplicate SQS messages - SQS messages have AT LEAST ONCE delivery semantics
+        # we only want to process an operation once since it could be expensive.
+        # State machine will give error when executing same stage with same execution id, maybe use this?:
+        # An error occurred (ExecutionAlreadyExists) when calling the StartExecution operation: Execution Already Exists: 'arn:aws:states:us-east-1:526662735483:execution:media-analysis-preprocess-state-machine-1:1c2b2471-a451-49b5-a6f7-12618b955d74
+        #    
+        
         print(stage)
-        # FIXME code goes here
+        sfn_input = map_preprocess_sfn_input(stage)
+        print(sfn_input)
+        response = SFN_FUNCTION_CLIENT.start_execution(
+            stateMachineArn=stage["StateMachine"],
+            name=workflow_execution_id,
+            input=json.dumps(sfn_input)
+        )
+
+        stage["stepFunctionExecutionArn"] = response['executionArn']
 
         print("REGISTER STEP FUNCTION ARN WITH CONTROL PLANE")
         stage = start_stage_execution(
-            "workflow", step_function_execution_arn, workflow_execution_id)
+            "workflow", stage["stepFunctionExecutionArn"], workflow_execution_id)
 
         print("START STAGE")
         print(stage)
 
-        outputs = {
-            "media": {
-                "video": stage["name"],
-                "audio": stage["name"]
-            },
-            "metadata": {
-                "key1": stage["name"]
-            }
-        }
+        #scaffolding for test
+#            outputs = {
+#                "media": {
+#                    "video": stage["name"],
+#                    "audio": stage["name"]
+#                },
+#                "metadata": {
+#                    "key1": stage["name"]
+#                }
+#            }
 
-        stage = complete_stage_execution(
-            "workflow", STAGE_STATUS_COMPLETE, outputs, workflow_execution_id)
-
-        print("COMPLETE STAGE")
-        print(stage)
+#           stage = complete_stage_execution(
+#                "workflow", STAGE_STATUS_COMPLETE, outputs, workflow_execution_id)
+#
+#            print("COMPLETE STAGE")
+#            print(stage)
 
     except Exception as e:
-        print("eat the errors for now to avoid spin put on the queue")
-        print(e)
+        #stage = complete_stage_execution(
+        #        "workflow", STAGE_STATUS_ERROR, outputs, workflow_execution_id)
+        #stage["exception"] = str(e)
+        logger.info("Exception {}".format(e))
+        raise ChaliceViewError("Exception: '%s'" % e)
 
     return stage
 
+# FIXME: Temporary to map stage structure to step function input structure
+def map_preprocess_sfn_input(stage):
+    sfn_input = {
+        "file_type": "mp4",
+        "eventSource": "media-analysis",
+        "stage": {
+            "stage": "preprocess"
+        },
+        "lambda": {
+            "service_name": "media_convert",
+            "function_name": "start_media_convert"
+        }
+    }
+
+    sfn_input["outputs"] = {}
+    sfn_input["key"] = stage["input"]["media"]["video"]["s3key"]
+    sfn_input["bucket"] = stage["input"]["media"]["video"]["s3bucket"]
+    sfn_input["status"] = stage["status"]
+    sfn_input["workflow_execution_id"] = stage["workflow_execution_id"]
+
+    return sfn_input
 
 def lambda_arn(name):
 
@@ -497,8 +546,10 @@ def get_stage_for_execution(trigger, workflow_execution_id):
             raise ChaliceViewError(
                 "Exception: workflow execution id '%s' not found" % workflow_execution_id)
 
+        #if (workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]] != )
         stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
         stage['name'] = workflow_execution["current_stage"]
+        stage["workflow_execution_id"] = workflow_execution_id
 
     except Exception as e:
 
@@ -597,17 +648,19 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         print(json.dumps(outputs))
 
         # update workflow globals
-        for mediaType in outputs["media"].keys():
-            # replace media with trasformed or created media from this stage
-            print(mediaType)
-            workflow_execution['globals']["media"][mediaType] = outputs["media"][mediaType]
+        if "media" in outputs:
+            for mediaType in outputs["media"].keys():
+                # replace media with trasformed or created media from this stage
+                print(mediaType)
+                workflow_execution['globals']["media"][mediaType] = outputs["media"][mediaType]
 
         if "metadata" not in workflow_execution['globals']:
             workflow_execution['globals']["metadata"] = {}
 
-        for key in outputs["metadata"].keys():
-            print(key)
-            workflow_execution['globals']["metadata"][key] = outputs["metadata"][key]
+        if "metadata" in outputs:
+            for key in outputs["metadata"].keys():
+                print(key)
+                workflow_execution['globals']["metadata"][key] = outputs["metadata"][key]
 
         if status == STAGE_STATUS_COMPLETE:
             workflow_execution = start_next_stage_execution(
@@ -653,9 +706,15 @@ def start_next_stage_execution(trigger, workflow_execution):
                     workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]))
 
                 workitem = {
-                    "workflow_execution_id": workflow_execution["id"]
+                    "workflow_execution_id": workflow_execution["id"],
+                    "workitem": {
+                        "stageName": current_stage, 
+                        "stage": workflow_execution["workflow"]["Stages"][current_stage]
+                    }
                 }
-
+                
+                print("QUEUE workitem:")
+                print(json.dumps(workitem))
                 response = SQS_CLIENT.send_message(
                     QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
                     MessageBody=json.dumps(workitem)

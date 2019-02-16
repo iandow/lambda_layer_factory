@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution workflow management resources using Amazon Elasticsearch.
 
+Parameters:
+  MediaAnalysisPreprocessFunction:
+      Type: String
+      Description: "ARN of the Media Analysis Preprocess Lambda function"
+  MediaAnalysisPreprocessStateMachineRole:
+      Type: String
+      Description: "Name of the Media Analysis state machine role"
+
 Mappings:
     SourceCode:
         General:
@@ -121,48 +129,36 @@ Resources:
 
     
   # Services - SQS
-
-  PreprocessQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: Preprocess
-      VisibilityTimeout: 60
   
-  AnalysisQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: Analysis
-      VisibilityTimeout: 60
+  StageExecutionDeadLetterQueue:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "StageExecutionDLQ"
+        MessageRetentionPeriod: 7200 # 2 hours in seconds
 
-  PostprocessQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: Postprocess
-      VisibilityTimeout: 60
-  
   StageExecutionQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: StageExecution
-      VisibilityTimeout: 60
+      VisibilityTimeout: 43200 #Maximum, 12 hours in seconds.  Stages are long running
+      RedrivePolicy:
+        deadLetterTargetArn:
+          "Fn::GetAtt":
+            - StageExecutionDeadLetterQueue
+            - Arn
+        maxReceiveCount: 1 # Don't retry if stage times out
   
+  MediaAnalysisWorkflowApiStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-api-stack.template"]]
+            Parameters:
+                StageExecutionQueueUrl: !Ref StageExecutionQueue
+                StageTableName: !Ref StageTable
+                WorkflowExecutionTableName: !Ref WorkflowExecutionTable
+                WorkflowTableName: !Ref WorkflowTable
       
-  # Services - Lambda
-  ExecuteStage:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub ${AWS::StackName}-execute-stage
-      Description: Executes the state machine for the given stage using the configuration for the provided workflow
-      Handler: index.handler
-      Role: !GetAtt StageExecutionRole.Arn
-      Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "media-analysis-workflow.zip"]]
-      Runtime:  python3.6
-      Timeout: 120
-      Environment:
-        Variables:
-          WorkflowTable: !Ref WorkflowTable
+
 
 Outputs:
   WorkflowTable:
@@ -180,21 +176,6 @@ Outputs:
     Value: !Ref WorkflowExecutionTable
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", WorkflowExecutionTable ] ]
-  PreprocessQueue:
-    Description: Work queue for Preprocess stage
-    Value: !Ref PreprocessQueue
-    Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", PreprocessQueue ] ]
-  AnalysisQueue:
-    Description: Work queue for ANalysis stage
-    Value: !Ref AnalysisQueue
-    Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", AnalysisQueue ] ]
-  PostprocessQueue:
-    Description: Work queue for Postprocess stage
-    Value: !Ref PostprocessQueue
-    Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", PostprocessQueue ] ]
   StageExecutionQueue:
     Description: Work queue for stage execution
     Value: !Ref StageExecutionQueue

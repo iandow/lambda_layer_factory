@@ -258,12 +258,7 @@ Resources:
             destS3Key: "assets/media_analysis_config.js"
             customAction: "putConfig"
 
-    MediaAnalysisWorkflowStack:
-        Type: "AWS::CloudFormation::Stack"
-        Properties:
-            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-stack.template"]]
     
-
     
     MediaAnalysisStorageStack:
         Type: "AWS::CloudFormation::Stack"
@@ -273,15 +268,7 @@ Resources:
                 Size: !Ref Size
                 DomainName: media-analysis
 
-    MediaAnalysisWorkflowApiStack:
-        Type: "AWS::CloudFormation::Stack"
-        Properties:
-            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-api-stack.template"]]
-            Parameters:
-                StageExecutionQueueUrl: !GetAtt MediaAnalysisWorkflowStack.Outputs.StageExecutionQueue
-                StageTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.StageTable
-                WorkflowExecutionTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.WorkflowExecutionTable
-                WorkflowTableName: !GetAtt  MediaAnalysisWorkflowStack.Outputs.WorkflowTable
+    
     
     MediaAnalysisStateMachineStack:
         Type: "AWS::CloudFormation::Stack"
@@ -290,6 +277,22 @@ Resources:
             Parameters:
                 MediaAnalysisFunction: !GetAtt MediaAnalysisFunction.Arn
                 StateMachineName: media-analysis-state-machine
+    
+    MediaAnalysisPreprocessStateMachineStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-preprocess-state-machine-stack.template"]]
+            Parameters:
+                MediaAnalysisPreprocessFunction: !GetAtt MediaAnalysisPreprocessFunction.Arn
+                StateMachineName: media-analysis-preprocess-state-machine
+
+    #MediaAnalysisWorkflowStack:
+    #    Type: "AWS::CloudFormation::Stack"
+    #    Properties:
+    #        TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-stack.template"]]
+    #       Parameters:
+    #            MediaAnalysisPreprocessFunction: !GetAtt MediaAnalysisPreprocessStateMachineStack.Outputs.MediaAnalysisPreprocessStateMachineArn
+    #            MediaAnalysisPreprocessStateMachineRole: !GetAtt MediaAnalysisPreprocessStateMachineStack.Outputs.MediaAnalysisPreprocessStateMachineRoleArn
 
     MediaAnalysisApiStack:
         Type: "AWS::CloudFormation::Stack"
@@ -451,6 +454,153 @@ Resources:
                         Action:
                           - "states:StartExecution"
                         Resource: !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:media-analysis-state-machine"]]
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "mediaConvert:DescribeEndpoints"
+                          - "mediaConvert:CreateJob"
+                          - "mediaConvert:GetJob"
+                        # This wildcard is present because the MediaConvert job
+                        # IDs are randomly generated.
+                        Resource: "*"
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "iam:GetRole"
+                          - "iam:PassRole"
+                        Resource: !GetAtt MediaConvertRole.Arn
+
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "logs:CreateLogGroup"
+                          - "logs:CreateLogStream"
+                          - "logs:PutLogEvents"
+                        # This wildcard is present because we're letting the
+                        # Lambda function name the CloudWatch log group.
+                        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/iam-identity-based-access-control-cwl.html
+                        Resource: "*"
+    
+    MediaAnalysisPreprocessFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+            Description: "AWS Lambda function to execute preprocess stage"
+            Code:
+                S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+                S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "media-analysis-preprocess-function.zip"]]
+            Handler: index.handler
+            Runtime: nodejs8.10
+            Role: !GetAtt MediaAnalysisPreprocessFunctionRole.Arn
+            Timeout: 60
+            MemorySize: 256
+            Environment:
+                Variables:
+                    CONFIDENCE_SCORE: '0'
+                    DOMAIN_ENDPOINT: !GetAtt MediaAnalysisStorageStack.Outputs.EsCluster
+                    ES_INDEX: media-analysis
+                    S3_BUCKET: !Join ["", ["media-analysis-", Ref: "AWS::Region", "-", Ref: "AWS::AccountId"]]
+                    STATE_MACHINE: !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:media-analysis-preprocess-state-machine"]]
+                    UUID: !GetAtt GenerateUuid.uuid
+                    METRICS: !FindInMap ["Send", "AnonymousUsage", "Data"]
+                    SOLUTIONID: SO0042
+                    MEDIACONVERT_ROLE: !GetAtt MediaConvertRole.Arn
+
+    MediaAnalysisPreprocessFunctionRole:
+        Type: AWS::IAM::Role
+        Metadata:
+          cfn_nag:
+            rules_to_suppress:
+              - id: W11
+                reason: "Refer to inline comments for the wildcard justification."
+        Properties:
+            AssumeRolePolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                -
+                  Effect: "Allow"
+                  Principal:
+                    Service:
+                      - "lambda.amazonaws.com"
+                  Action:
+                    - "sts:AssumeRole"
+            Path: /
+            Policies:
+              -
+                PolicyName: media-analysis-preprocess-function-policy
+                PolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "es:ESHttpPut"
+                          - "es:ESHttpPost"
+                        Resource:
+                          # Wildcards on ElasticSearch domain resources are
+                          # present because documents are indexed based off of
+                          # the Step Function job ID, which is unique per
+                          # invocation.
+                          - !Join ["", ["arn:aws:es:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":domain/media-analysis/*"]]
+                          - !Join ["", ["arn:aws:es:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":domain/media-analysis"]]
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "rekognition:CreateCollection"
+                          - "rekognition:DetectFaces"
+                          - "rekognition:DetectLabels"
+                          - "rekognition:GetCelebrityRecognition"
+                          - "rekognition:GetFaceDetection"
+                          - "rekognition:GetFaceSearch"
+                          - "rekognition:GetLabelDetection"
+                          - "rekognition:GetPersonTracking"
+                          - "rekognition:IndexFaces"
+                          - "rekognition:RecognizeCelebrities"
+                          - "rekognition:SearchFacesByImage"
+                          - "rekognition:StartCelebrityRecognition"
+                          - "rekognition:StartFaceDetection"
+                          - "rekognition:StartFaceSearch"
+                          - "rekognition:StartLabelDetection"
+                          - "rekognition:StartPersonTracking"
+                        # Wildcards in the Rekognition resource ARNs are present
+                        # due to Rekognition needing access to collections that
+                        # have IDs based off of a UUID generator.
+                        # https://docs.aws.amazon.com/rekognition/latest/dg/api-permissions-reference.html
+                        Resource: "*"
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "comprehend:BatchDetectEntities"
+                          - "comprehend:BatchDetectKeyPhrases"
+                        # These actions require resource wildcards per the
+                        # Comprehend documentation.
+                        # https://docs.aws.amazon.com/comprehend/latest/dg/comprehend-api-permissions-ref.html
+                        Resource: "*"
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "transcribe:GetTranscriptionJob"
+                          - "transcribe:StartTranscriptionJob"
+                        # These actions require resource wildcards per the
+                        # Transcribe documentation.
+                        # https://docs.aws.amazon.com/transcribe/latest/dg/asc-api-permissions-ref.html
+                        Resource: "*"
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "s3:GetObject"
+                          - "s3:PutObject"
+                        Resource:
+                          # The bucket name is constructed rather than referenced
+                          # due to a circular dependency between the S3 Bucket
+                          # and the Lambda events. The wildcard is present because
+                          # the step function will need access to objects in the
+                          # bucket that have a path based off of UUIDs.
+                          - !Join ["", ["arn:aws:s3:::", "media-analysis-", Ref: "AWS::Region", "-", Ref: "AWS::AccountId", "/*"]]
+                      -
+                        Effect: "Allow"
+                        Action:
+                          - "states:StartExecution"
+                        Resource: !Join ["", ["arn:aws:states:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":stateMachine:media-analysis-preprocess-state-machine"]]
                       -
                         Effect: "Allow"
                         Action:
