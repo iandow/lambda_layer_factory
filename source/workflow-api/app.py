@@ -27,7 +27,7 @@ STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 
-# FIXME - need create stage API and custom resource
+# FIXME - need create stage API and custom resource to break circular dependency
 PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
 ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
 POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
