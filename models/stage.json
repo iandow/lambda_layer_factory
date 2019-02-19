@@ -1,0 +1,72 @@
+# A stage is a set of operations that are grouped together to be executed in 
+
+# defintion
+"stage-type-name": {
+    "configuration":{
+        "operation1": operation-configurtion1,
+        "operation2": operation-configuration2,
+    },
+    "type": NestedStateMachineQueue,
+    "resources": {
+        "queue": endpoint,
+        "stateMachine": arn
+    }
+}
+
+# execution input
+"stage-name": {
+    "stage-type-name": stage-type-name,
+    "configuration:{
+        "operation1": operation-configurtion1,
+        "operation2": operation-configuration2,
+        ...
+    },
+    "resources": {
+        "queue": endpoint,
+        "stateMachine": arn,
+        "stateMachineExecution": arn
+    }
+    "input": {
+        "media": media,
+        "metadata": metadata
+    },
+    "status": STAGE_EXECUTION_STATUS,
+    "name": stage-name,
+    "workflowExecutionId": guid
+}
+
+# execution output
+"stage-name": {
+    "stage-type": stage-type-name,
+    "name": stage-name,
+    "status": STAGE_EXECUTION_STATUS,
+    "workflowExecutionId": guid,
+    "configuration:{
+        "operation-name1": operation-configurtion1,
+        "operation-name2": operation-configuration2,
+        ...
+    },
+    "resources": {
+        "queue": endpoint,
+        "stateMachine": arn,
+        "stateMachineExecution": arn
+    }
+    "input": {
+        "media": media,
+        "metadata": metadata
+    },
+    "output": {
+        "media": media,
+        "metadata": metadata,
+        "operation-outputs": [
+            {
+            "name": "operation-name", 
+            "media": media,
+            "metadata": metadata,
+            "status": OPERATION_EXECUTION_STATUS
+            },
+        ...
+        ]
+    }
+    
+}

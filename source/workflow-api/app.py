@@ -28,9 +28,9 @@ WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 
 # FIXME - need create stage API and custom resource to break circular dependency
-PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
-ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
-POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-1"
+PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
+ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
+POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
 
 # DynamoDB
 DYNAMO_CLIENT = boto3.client("dynamodb")
@@ -46,7 +46,7 @@ SQS_CLIENT = boto3.client('sqs')
 # Environment
 
 DEFAULT_WORKFLOW_SQS = {
-    "name": "mas-Default",
+    "name": "MAS-Pipeline",
     "StartAt": "Preprocess",
     "Stages": {
         "Preprocess": {
@@ -59,12 +59,6 @@ DEFAULT_WORKFLOW_SQS = {
             "Type": "NestedQueue",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
             "StateMachine": ANALYSIS_STATE_MACHINE_ARN,
-            "Next": "Postprocess"
-        },
-        "Postprocess": {
-            "Type": "NestedQueue",
-            "Resource": STAGE_EXECUTION_QUEUE_URL,
-            "StateMachine": POSTPROCESS_STATE_MACHINE_ARN,
             "End": True
         }
     }
@@ -423,6 +417,14 @@ def lambda_arn(name):
 
 # @app.on_sqs_message(queue='Analysis', batch_size=1)
 
+@app.route('/workflow/execution/nextstage', cors=True, methods=['POST'])
+def execute_next_stage():
+    
+    stage = app.current_request.json_body
+    print(stage)
+    stage = execute_stage(stage)
+
+    return stage  
 
 @app.lambda_function()
 def test_execute_stage_lambda(event, context):
@@ -435,7 +437,22 @@ def test_execute_stage_lambda(event, context):
             message = json.loads(record["body"])
             print(message)
 
-        workflow_execution_id = message["workflow_execution_id"]
+        stage = execute_stage(message)
+    
+    except Exception as e:
+        #stage = complete_stage_execution(
+        #        "workflow", STAGE_STATUS_ERROR, outputs, workflow_execution_id)
+        #stage["exception"] = str(e)
+        logger.info("Exception {}".format(e))
+        raise ChaliceViewError("Exception: '%s'" % e)
+
+    return stage
+
+
+def execute_stage(input_stage):
+
+    try:
+        workflow_execution_id = input_stage["workflow_execution_id"]
 
         stage = get_stage_for_execution("workflow", workflow_execution_id)
         stage["workflow_execution_id"] = workflow_execution_id 
@@ -447,11 +464,15 @@ def test_execute_stage_lambda(event, context):
         #    
         
         print(stage)
-        sfn_input = map_preprocess_sfn_input(stage)
+        if stage["name"] == "Preprocess":
+            sfn_input = map_preprocess_sfn_input(stage)
+        elif stage["name"] == "Analysis":
+            sfn_input = map_analysis_sfn_input(stage)
+        
         print(sfn_input)
         response = SFN_FUNCTION_CLIENT.start_execution(
             stateMachineArn=stage["StateMachine"],
-            name=workflow_execution_id,
+            name=stage["name"]+workflow_execution_id,
             input=json.dumps(sfn_input)
         )
 
@@ -461,26 +482,6 @@ def test_execute_stage_lambda(event, context):
         stage = start_stage_execution(
             "workflow", stage["stepFunctionExecutionArn"], workflow_execution_id)
 
-        print("START STAGE")
-        print(stage)
-
-        #scaffolding for test
-#            outputs = {
-#                "media": {
-#                    "video": stage["name"],
-#                    "audio": stage["name"]
-#                },
-#                "metadata": {
-#                    "key1": stage["name"]
-#                }
-#            }
-
-#           stage = complete_stage_execution(
-#                "workflow", STAGE_STATUS_COMPLETE, outputs, workflow_execution_id)
-#
-#            print("COMPLETE STAGE")
-#            print(stage)
-
     except Exception as e:
         #stage = complete_stage_execution(
         #        "workflow", STAGE_STATUS_ERROR, outputs, workflow_execution_id)
@@ -489,6 +490,40 @@ def test_execute_stage_lambda(event, context):
         raise ChaliceViewError("Exception: '%s'" % e)
 
     return stage
+
+# FIXME: Temporary to map stage structure to step function input structure
+def map_analysis_sfn_input(stage):
+    sfn_input = {
+        "file_type": "mp4",
+        "eventSource": "media-analysis",
+        "configuration": {
+            "Video-Label": "enabled",
+            "Video-Celeb": "disabled",
+            "Video-Face": "disabled",
+            "Video-Face-Match": "disabled",
+            "Video-Person": "disabled"
+        }
+    }
+
+    sfn_input["outputs"] = {}
+    sfn_input["key"] = stage["input"]["media"]["video"]["s3key"]
+    sfn_input["bucket"] = stage["input"]["media"]["video"]["s3bucket"]
+    sfn_input["status"] = stage["status"]
+    sfn_input["workflow_execution_id"] = stage["workflow_execution_id"]
+
+    return sfn_input
+
+# FIXME: Temporary map preprocess stage output to stage expected output
+def map_analysis_sfn_output(sfn_output):
+    stage_output = {
+        "media":{
+            "audio": {
+            }
+        },
+        "metadata": {}
+    }
+
+    return stage_output
 
 # FIXME: Temporary to map stage structure to step function input structure
 def map_preprocess_sfn_input(stage):
@@ -511,6 +546,23 @@ def map_preprocess_sfn_input(stage):
     sfn_input["workflow_execution_id"] = stage["workflow_execution_id"]
 
     return sfn_input
+
+# FIXME: Temporary map preprocess stage output to stage expected output
+def map_preprocess_sfn_output(sfn_output):
+    stage_output = {
+        "media":{
+            "audio": {
+            }
+        },
+        "metadata": {}
+    }
+
+    stage_output["media"]["audio"]["s3key"] = sfn_output["key"]
+    #stage_output["media"]["audio"]["s3bucket"] = sfn_output["s3bucket"]
+    stage_output["media"]["audio"]["destination"] = sfn_output["destination"]
+    stage_output["media"]["audio"]["file_type"] = sfn_output["file_type"]
+
+    return stage_output
 
 def lambda_arn(name):
 
@@ -612,6 +664,7 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
 
     try:
 
+        
         execution_table = DYNAMO_RESOURCE.Table(execution_table_name)
         # lookup the workflow
         response = execution_table.get_item(
@@ -633,34 +686,43 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         print("STAGE NAME")
         print(stage['name'])
 
+        if stage["name"] == "Preprocess":
+            print(json.dumps(outputs))
+            stage_outputs = map_preprocess_sfn_output(outputs)
+            print("MAPPED OUTPUTS")
+            print(json.dumps(stage_outputs))
+        elif stage["name"] == "Analysis":
+            print(json.dumps(outputs))
+            stage_outputs = map_analysis_sfn_output(outputs)
+            print("MAPPED OUTPUTS")
+            print(json.dumps(stage_outputs))
+
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
                                                  ]["status"] = status
 
-        print("CURRENT STAGE")
-        print(stage['name'])
 
         print(workflow_execution["workflow"]["Stages"]
               [workflow_execution["current_stage"]])
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
-                                                 ]["outputs"] = outputs
+                                                 ]["outputs"] = stage_outputs
 
-        print(json.dumps(outputs))
+        print(json.dumps(stage_outputs))
 
         # update workflow globals
-        if "media" in outputs:
-            for mediaType in outputs["media"].keys():
+        if "media" in stage_outputs:
+            for mediaType in stage_outputs["media"].keys():
                 # replace media with trasformed or created media from this stage
                 print(mediaType)
-                workflow_execution['globals']["media"][mediaType] = outputs["media"][mediaType]
+                workflow_execution['globals']["media"][mediaType] = stage_outputs["media"][mediaType]
 
         if "metadata" not in workflow_execution['globals']:
             workflow_execution['globals']["metadata"] = {}
 
-        if "metadata" in outputs:
-            for key in outputs["metadata"].keys():
+        if "metadata" in stage_outputs:
+            for key in stage_outputs["metadata"].keys():
                 print(key)
-                workflow_execution['globals']["metadata"][key] = outputs["metadata"][key]
+                workflow_execution['globals']["metadata"][key] = stage_outputs["metadata"][key]
 
         if status == STAGE_STATUS_COMPLETE:
             workflow_execution = start_next_stage_execution(

@@ -1,0 +1,135 @@
+{
+    "file_type": "mp4",
+    "eventSource": "media-analysis",
+    "stage": [
+      {
+        "file_type": "mp4",
+        "eventSource": "media-analysis",
+        "stage": {
+          "stage": "preprocess"
+        },
+        "lambda": {
+          "service_name": "media_convert",
+          "function_name": "get_status"
+        },
+        "outputs": {},
+        "key": "mediaconvert/private/TRAILER1_audio.mp4",
+        "bucket": "media-analysis-us-east-1-526662735483",
+        "mediaConvert": {
+          "jobDidStart": true,
+          "data": {
+            "Job": {
+              "Arn": "arn:aws:mediaconvert:us-east-1:526662735483:jobs/1550346744607-73lmh8",
+              "CreatedAt": "2019-02-16T19:52:24.000Z",
+              "Id": "1550346744607-73lmh8",
+              "Queue": "arn:aws:mediaconvert:us-east-1:526662735483:queues/Default",
+              "Role": "arn:aws:iam::526662735483:role/mascode-MediaConvertRole-1MSDSXGK0P7W",
+              "Settings": {
+                "AdAvailOffset": 0,
+                "Inputs": [
+                  {
+                    "AudioSelectors": {
+                      "Audio Selector 1": {
+                        "DefaultSelection": "DEFAULT",
+                        "Offset": 0,
+                        "ProgramSelection": 1
+                      }
+                    },
+                    "DeblockFilter": "DISABLED",
+                    "DenoiseFilter": "DISABLED",
+                    "FileInput": "s3://media-analysis-us-east-1-526662735483/private/TRAILER1.mp4",
+                    "FilterEnable": "AUTO",
+                    "FilterStrength": 0,
+                    "PsiControl": "USE_PSI",
+                    "TimecodeSource": "EMBEDDED",
+                    "VideoSelector": {
+                      "ColorSpace": "FOLLOW"
+                    }
+                  }
+                ],
+                "OutputGroups": [
+                  {
+                    "Name": "File Group",
+                    "OutputGroupSettings": {
+                      "FileGroupSettings": {
+                        "Destination": "s3://media-analysis-us-east-1-526662735483/mediaconvert/private/"
+                      },
+                      "Type": "FILE_GROUP_SETTINGS"
+                    },
+                    "Outputs": [
+                      {
+                        "AudioDescriptions": [
+                          {
+                            "AudioSourceName": "Audio Selector 1",
+                            "AudioTypeControl": "FOLLOW_INPUT",
+                            "CodecSettings": {
+                              "AacSettings": {
+                                "AudioDescriptionBroadcasterMix": "NORMAL",
+                                "Bitrate": 96000,
+                                "CodecProfile": "LC",
+                                "CodingMode": "CODING_MODE_2_0",
+                                "RateControlMode": "CBR",
+                                "RawFormat": "NONE",
+                                "SampleRate": 48000,
+                                "Specification": "MPEG4"
+                              },
+                              "Codec": "AAC"
+                            },
+                            "LanguageCodeControl": "FOLLOW_INPUT"
+                          }
+                        ],
+                        "ContainerSettings": {
+                          "Container": "MP4",
+                          "Mp4Settings": {
+                            "CslgAtom": "INCLUDE",
+                            "FreeSpaceBox": "EXCLUDE",
+                            "MoovPlacement": "PROGRESSIVE_DOWNLOAD"
+                          }
+                        },
+                        "Extension": "mp4",
+                        "NameModifier": "_audio"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "Status": "SUBMITTED",
+              "Timing": {
+                "SubmitTime": "2019-02-16T19:52:24.000Z"
+              },
+              "UserMetadata": {
+                "SolutionID": "SO0042"
+              }
+            }
+          },
+          "status": "COMPLETE"
+        }
+      }
+    ],
+    "lambda": {
+      "service_name": "media_convert",
+      "function_name": "start_media_convert"
+    },
+    "outputs": {},
+    "key": "private/TRAILER1.mp4",
+    "bucket": "media-analysis-us-east-1-526662735483"
+  }
+  Output
+  Exception
+  Error
+  
+  KeyError
+  Cause
+  
+  {
+    "errorMessage": "'status'",
+    "errorType": "KeyError",
+    "stackTrace": [
+      [
+        "/var/task/app.py",
+        583,
+        "complete_stage_execution_lambda",
+        "return complete_stage_execution(\"lambda\", event[\"status\"], event[\"outputs\"], event[\"workflow_execution_id\"])"
+      ]
+    ]
+  }

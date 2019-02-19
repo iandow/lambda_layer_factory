@@ -1,0 +1,97 @@
+{
+    "StartAt": "Preprocess Media",
+    "States": {
+      "Preprocess Media": {
+        "Type": "Parallel",
+        "Next": "End Stage",
+        "ResultPath": "$.stage",
+        "Branches": [{
+          "StartAt": "Stage Name",
+          "States": {
+            "Stage Name": {
+            "Type": "Pass",
+            "Result": {
+              "stage": "preprocess"
+            },
+            "ResultPath": "$.stage",
+            "Next": "Convert to Audio"
+          },
+          "Convert to Audio": {
+            "Type": "Pass",
+            "Result": {
+              "service_name": "media_convert",
+              "function_name": "start_media_convert"
+            },
+            "ResultPath": "$.lambda",
+            "Next": "Start MediaConvert"
+          },
+          "Start MediaConvert": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:526662735483:function:mascode-MediaAnalysisPreprocessFunction-GSF226ADOP0Y",
+            "InputPath": "$",
+            "ResultPath": "$.mediaConvert",
+            "Next": "Did MediaConvert Start"
+          },
+          "Did MediaConvert Start": {
+            "Type": "Choice",
+            "Choices": [{
+              "Variable": "$.mediaConvert.jobDidStart",
+              "BooleanEquals": true,
+              "Next": "MediaConvert Wait"
+            }],
+            "Default": "Job Failed"
+          },
+          "MediaConvert Wait": {
+            "Type": "Wait",
+            "Seconds": 30,
+            "Next": "Get MediaConvert Status Params"
+          },
+          "Get MediaConvert Status Params": {
+            "Type": "Pass",
+            "Result": {
+              "service_name": "media_convert",
+              "function_name": "get_status"
+            },
+            "ResultPath": "$.lambda",
+            "Next": "Get MediaConvert Status"
+          },
+          "Get MediaConvert Status": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:526662735483:function:mascode-MediaAnalysisPreprocessFunction-GSF226ADOP0Y",
+            "InputPath": "$",
+            "ResultPath": "$",
+            "Next": "Did MediaConvert Complete"
+          },
+          "Did MediaConvert Complete": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.mediaConvert.status",
+                "StringEquals": "FAILED",
+                "Next": "Job Failed"
+              },
+              {
+                "Variable": "$.mediaConvert.status",
+                "StringEquals": "COMPLETE",
+                "Next": "Job Succeeded"
+              }
+            ],
+            "Default": "MediaConvert Wait"
+          },
+          "Job Failed": {
+            "Type": "Fail"
+          },
+          "Job Succeeded": {
+            "Type": "Succeed"
+          }
+          }
+        }]
+      },
+      "Preprocess Complete": {
+        "Type": "Pass",
+        "End": True
+      }
+
+          
+  }
+}

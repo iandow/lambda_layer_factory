@@ -124,6 +124,12 @@ Resources:
                         "Type": "Pass",
                         "InputPath": "$.mediaConvert.data.Job.Settings.OutputGroups[0].Outputs[0].Extension", 
                         "ResultPath": "$.outputs.file_type",
+                        "Next": "Update Outputs"
+                      },
+                      "Update Outputs": {
+                        "Type": "Pass",
+                        "InputPath": "$.stage[0]",
+                        "ResultPath": "$.outputs",
                         "End": true
                       }
                       }

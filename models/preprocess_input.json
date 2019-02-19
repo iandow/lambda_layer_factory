@@ -1,0 +1,13 @@
+{
+  "key": "video.mp4",
+  "file_type": "mp4",
+  "bucket": "media-analysis-us-east-1-526662735483",
+  "eventSource": "media-analysis",
+  "stage": {
+    "stage": "preprocess"
+  },
+  "lambda": {
+    "service_name": "media_convert",
+    "function_name": "start_media_convert"
+  }
+}

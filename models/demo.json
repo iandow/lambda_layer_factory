@@ -1,0 +1,20 @@
+
+
+https://fo7g2xwnxi.execute-api.us-east-1.amazonaws.com/api/workflow/execution
+{
+    "name":"MAS-Pipeline",
+    "input": {
+    	"media": {
+    		"video":{
+    			"s3bucket":"media-analysis-us-east-1-526662735483",
+    			"s3key":"private/TRAILER1.mp4"
+    		}
+    	}
+    }
+    
+}
+
+https://fo7g2xwnxi.execute-api.us-east-1.amazonaws.com/api/workflow/execution/nextstage
+{
+    "workflow_execution_id": "c7115cf2-6fb5-43fd-a8eb-128f046b7122"
+}

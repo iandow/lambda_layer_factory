@@ -1,0 +1,77 @@
+# Base media type for our media pipeline, this is what pipelines transform.  For a Unix pipeline, this would be type file.
+# For our pipeline, it is at most one of each kind of media supported (video, audio, image).
+"media": {
+    "video": {
+        "s3bucket": "bar",
+        "s3key": "foo",
+        "fileType": "mp4"
+    },
+    "audio": {
+        "s3bucket": "bar",
+        "s3key": "foo",
+        "fileType": "mp4"
+        },
+    "image": {
+        "s3bucket": "bar",
+        "s3key": "foo",
+        "fileType": "mp4"
+        }
+    }
+
+# Each operation can:
+# - transforms a media object into a new media object
+# - extracts metadata about the object and stores it to the data plane
+# - extracts metadata about the object and publishes to the pipeline metadata
+
+# Definition:
+"operation-name": {
+    "configuration" : {
+        "mediaType": "video"
+        "enabled:": True,
+        "configruation1": "value1",
+        "configruation2": "value2"
+    },
+    "input": {
+        "metadata": {
+            "input1": "type"
+        }
+    }
+}
+
+# Execution input:
+"operation-name": {
+    "configuration" : {
+        "mediaType": "video"
+        "enabled:": True,
+        "configruation1": "value1",
+        "configruation2": "value2"
+    },
+    "input": {
+        "media": media 
+        "metadata" : metadata         
+        }
+    },
+    "status": OPERATION_EXECUTION_STATUS 
+}
+
+# Execution output:
+"operation-name": {
+    "configuration" : {
+        "mediaType": "video"
+        "enabled:": True,
+        "configruation1": "value1",
+        "configruation2": "value2"
+    },
+    "input": {
+        "media": media 
+        "metadata" : metadata         
+        },
+    "output": {
+        "media": media 
+        "metadata" : metadata         
+        },
+    },
+    "status": OPERATION_EXECUTION_STATUS    
+}
+
+

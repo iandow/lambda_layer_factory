@@ -1,0 +1,53 @@
+# defintion
+
+"workflow": {
+    "name": string,
+    "StartAt": stage-name,
+    "Stages": {
+        stage-defintion1,
+        stage-sefintion2,
+        ...
+    }
+}
+
+# execution input
+
+"workflow": {
+    "name": string,
+    "workflowExecutionId": guid,
+    "parentWorkflowExecutionId": guid,
+    "status": WORKFLOW_EXECUTION_STATUS,
+    input": {
+        "media": media,
+        "metadata": metadata
+    },
+    "StartAt": stage-name,
+    "Stages": {
+        stage-execution-input1,
+        stage-execution-input2,
+        ...
+    }
+}
+
+# execution output
+
+"workflow": {
+    "name": string,
+    "workflowExecutionId": guid,
+    "parentWorkflowExecutionId": guid,
+    "status": WORKFLOW_EXECUTION_STATUS,
+    "input": {
+        "media": media,
+        "metadata": metadata
+    },
+    "output": {
+        "media": media,
+        "metadata": metadata
+    },
+    "StartAt": stage-name,
+    "Stages": {
+        stage-execution-output1,
+        stage-execution-output2,
+        ...
+    }
+}
