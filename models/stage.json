@@ -1,12 +1,16 @@
 # A stage is a set of operations that are grouped together to be executed in 
 
 # defintion
-"stage-type-name": {
-    "configuration":{
-        "operation1": operation-configurtion1,
-        "operation2": operation-configuration2,
+{
+"name": "",
+"definition": {
+    "operations": {
+        "operation1": { 
+
+            "operation2": operation-configuration2,
+        }
     },
-    "type": NestedStateMachineQueue,
+    "type": NestedQueue,
     "resources": {
         "queue": endpoint,
         "stateMachine": arn

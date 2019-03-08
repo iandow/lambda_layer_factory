@@ -547,7 +547,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -592,7 +592,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.complete_stage_execution_lambda",
         "MemorySize": 128,
@@ -637,7 +637,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -682,7 +682,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.get_stage_for_execution_lambda",
         "MemorySize": 128,
@@ -727,7 +727,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.start_stage_execution_lambda",
         "MemorySize": 128,
@@ -772,7 +772,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/8e03ec123ac41be6b3beeae7aca6bb34"
+          "S3Key": "media-analysis-solution/v2.0.4/43f05ccbf20368c7ae742b13f12d8858"
         },
         "Handler": "app.test_execute_stage_lambda",
         "MemorySize": 128,
@@ -1117,6 +1117,82 @@
                 }
               }
             },
+            "/workflow/operation": {
+              "options": {
+                "consumes": [
+                  "application/json"
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "headers": {
+                      "Access-Control-Allow-Headers": {
+                        "type": "string"
+                      },
+                      "Access-Control-Allow-Methods": {
+                        "type": "string"
+                      },
+                      "Access-Control-Allow-Origin": {
+                        "type": "string"
+                      }
+                    },
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "x-amazon-apigateway-integration": {
+                  "passthroughBehavior": "when_no_match",
+                  "requestTemplates": {
+                    "application/json": "{\"statusCode\": 200}"
+                  },
+                  "responses": {
+                    "default": {
+                      "responseParameters": {
+                        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+                        "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Origin": "'*'"
+                      },
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "mock"
+                }
+              },
+              "post": {
+                "consumes": [
+                  "application/json"
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "x-amazon-apigateway-integration": {
+                  "contentHandling": "CONVERT_TO_TEXT",
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "aws_proxy",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
+                  }
+                }
+              }
+            },
             "/workflow/stage": {
               "options": {
                 "consumes": [
@@ -1259,10 +1335,10 @@
         }
       }
     },
-    "RestAPIDeployment1468f327d5": {
+    "RestAPIDeployment7e2342cb80": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
-        "Description": "RestApi deployment id: 1468f327d5c7168b4cb8758266326e8ac737b27b",
+        "Description": "RestApi deployment id: 7e2342cb80d9f43bfa5b6bdcc9a7e057044fb5cf",
         "RestApiId": {
           "Ref": "RestAPI"
         },
@@ -1273,7 +1349,7 @@
       "Type": "AWS::ApiGateway::Stage",
       "Properties": {
         "DeploymentId": {
-          "Ref": "RestAPIDeployment1468f327d5"
+          "Ref": "RestAPIDeployment7e2342cb80"
         },
         "RestApiId": {
           "Ref": "RestAPI"

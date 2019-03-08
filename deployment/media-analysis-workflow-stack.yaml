@@ -113,6 +113,20 @@ Resources:
         WriteCapacityUnits: '5'
       TableName: !Join ["", [Ref: "AWS::StackName", "Stage"]]
 
+  OperationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: name
+        AttributeType: S
+      KeySchema:
+      - AttributeName: name
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Join ["", [Ref: "AWS::StackName", "Operation"]]
+
   WorkflowExecutionTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -171,6 +185,11 @@ Outputs:
     Value: !Ref StageTable
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", StageTable ] ]
+  OperationTable:
+    Description: Stage definition table
+    Value: !Ref StageTable
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", OperationTable ] ]
   WorkflowExecutionTable:
     Description: Workflow execution table
     Value: !Ref WorkflowExecutionTable

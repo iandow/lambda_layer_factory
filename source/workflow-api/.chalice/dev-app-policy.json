@@ -43,7 +43,9 @@
             ],
             "Resource": [
               "arn:aws:iam::526662735483:role/mascode-MediaAnalysisFunctionRole-6YDC4OXE1XH3",
-              "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW"
+              "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW",
+              "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN",
+              "*"
             ]
           }
 

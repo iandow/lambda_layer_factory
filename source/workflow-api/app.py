@@ -1,5 +1,5 @@
 from chalice import Chalice
-from chalice import BadRequestError, ChaliceViewError
+from chalice import NotFoundError, BadRequestError, ChaliceViewError, Response
 import boto3
 from boto3 import resource
 from botocore.client import ClientError
@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 import time
 import decimal
+from chalicelib import awsmas
 
 APP_NAME = "workflow-api"
 API_STAGE = "dev"
@@ -23,21 +24,27 @@ logger = logging.getLogger('boto3')
 logger.setLevel(logging.INFO)
 
 WORKFLOW_TABLE_NAME = os.environ["WORKFLOW_TABLE_NAME"]
-STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
+#STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
+STAGE_TABLE_NAME = "mas-workflowStage"
+#OPERATION_TABLE_NAME = os.environ["OPERATION_TABLE_NAME"]
+OPERATION_TABLE_NAME = "mas-workflowOperation"
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 
 # FIXME - need create stage API and custom resource to break circular dependency
-PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
-ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
-POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
+PREPROCESS_STATE_MACHINE_ARN 
+    = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
+ANALYSIS_STATE_MACHINE_ARN 
+    = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
+POSTPROCESS_STATE_MACHINE_ARN 
+    = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
 
 # DynamoDB
 DYNAMO_CLIENT = boto3.client("dynamodb")
 DYNAMO_RESOURCE = boto3.resource("dynamodb")
 
 # Step Functions
-SFN_FUNCTION_CLIENT = boto3.client('stepfunctions')
+SFN_CLIENT = boto3.client('stepfunctions')
 
 # Simple Queue Service
 SQS_RESOURCE = boto3.resource('sqs')
@@ -50,30 +57,19 @@ DEFAULT_WORKFLOW_SQS = {
     "StartAt": "Preprocess",
     "Stages": {
         "Preprocess": {
-            "Type": "NestedQueue",
+            "Type": "Preprocess",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
             "StateMachine": PREPROCESS_STATE_MACHINE_ARN,
             "Next": "Analysis"
         },
         "Analysis": {
-            "Type": "NestedQueue",
+            "Type": "Analysis",
             "Resource": STAGE_EXECUTION_QUEUE_URL,
             "StateMachine": ANALYSIS_STATE_MACHINE_ARN,
             "End": True
         }
     }
 }
-
-
-WORKFLOW_STATUS_STARTED = "Started"
-WORKFLOW_STATUS_ERROR = "Error"
-WORKFLOW_STATUS_COMPLETE = "Complete"
-
-STAGE_STATUS_NOT_STARTED = "Not Started"
-STAGE_STATUS_STARTED = "Started"
-STAGE_STATUS_EXECUTING = "Executing"
-STAGE_STATUS_ERROR = "Error"
-STAGE_STATUS_COMPLETE = "Complete"
 
 # Helper class to convert a DynamoDB item to JSON.
 
@@ -84,37 +80,147 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 
-def results_pager(list_function, list_locator, attr_transform):
-    results = []
-    next_token = None
-    try:
-        while True:
-            if next_token is None or len(next_token) == 0:
-                service_response = list_function()
-            else:
-                service_response = list_function(NextToken=next_token)
-            results = results + list_locator(service_response)
-            # check the paging token
-            if "NextToken" in service_response:
-                next_token = service_response["NextToken"]
-            else:
-                break
-            if len(next_token) == 0:
-                break
-        for item in results:
-            item = attr_transform(item)
-    except Exception as e:
-        print(e)
-    return results
-
-
 @app.route('/')
 def index():
     return {'hello': 'world'}
 
-'''
+##############################################################################
+# Operations
+##############################################################################
 
-'''
+@app.route('/workflow/operation', cors=True, methods=['POST'])
+def create_operation(): 
+    """ Registers a new operator with the workflow engine
+
+    The body defines the configuration parameters for the operator, the 
+    expected inputs and their data types as well as a state machine that 
+    defines the operator.  The state machine must contain logic to make a 
+    runtime decision of whether or not the opetator will execute based on the 
+    inputs and configuration presented to it.  For example, if the input is an 
+    audio file, the operator must check the configuration and decide if it can 
+    process audio.  
+
+    If a stateMachineArn is provided on the input, then the ASL for the 
+    operator is copied from the exsting state machine.   Otherwise, the ASL 
+    for the state machine must be specified in the body.
+
+    Body: 
+        "operation-name": {
+            "configuration" : {
+                "mediaType": "video",
+                "enabled:": True,
+                "configruation1": "value1",
+                "configruation2": "value2",
+                ...
+            },
+            "input": {
+                "metadata": {
+                    "name":"input1",
+                    "type":"string",
+                    "required": false
+                }
+            },
+            "stateMachineArn":arn,
+            "stateMachineExecutionRoleArn":arn
+
+        }
+
+    Returns:
+        A dict mapping keys to the corresponding operation created including 
+        the ASL for the duplicated state machine a guid and a create time.
+
+    Raises:
+        200: The operation was created successfully.
+        400: Bad Request - the input state machine ARN was not found or the 
+             state machine ASL is invalid
+        500: Internal server error 
+    """
+    table_name = OPERATION_TABLE_NAME
+
+    try:
+        table = DYNAMO_RESOURCE.Table(table_name)
+
+        print(app.current_request.json_body)
+
+        operation = app.current_request.json_body
+
+        # save operation configuration
+
+        print(json.dumps(operation))
+        for k, v in operation.items():
+            print(k, v)
+
+        name = k
+        if "stateMachineArn" in operation:
+
+            response = SFN_CLIENT.describe_state_machine(
+                stateMachineArn=operation[name]["stateMachineArn"]
+                )
+
+            operation["stateMachineASL"] = response["definition"]
+            
+        operation["name"] = name
+        
+        table.put_item(Item=operation)
+
+    except SFN_CLIENT.exceptions.NotFoundException as e:
+        raise BadRequestError("State machine ARN {} not found. Error: {}"
+            .format(operation[name]["stateMachineArn"], e))
+
+    except Exception as e:
+        logger.info("Exception {}".format(e))
+        operation = None
+        raise ChaliceViewError("Exception '%s'" % e)
+
+    return operation
+    
+
+@app.route('/workflow/operation', cors=True, methods=['PUT'])
+def update_operation(): 
+    operation = {}
+    return operation
+
+@app.route('/workflow/operation', cors=True, methods=['GET'])
+def list_operations():
+    """ List all operators
+
+    Returns:
+        A list of operation definitions.
+
+    Raises:
+        200: All operations returned sucessfully.
+        500: Internal server error 
+    """ 
+
+    table = DYNAMO_RESOURCE.Table(OPERATION_TABLE_NAME)
+    
+    response = table.scan()
+    operations = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        operations.extend(response['Items'])
+
+    return operations
+
+@app.route('/workflow/operation/{name}', cors=True, methods=['GET'])
+def get_operations_by_name(name):
+    """ Get an operation definition by name
+
+    Returns:
+        A dictionary contianing the operation definition.
+
+    Raises:
+        200: All operations returned sucessfully.
+        404: Not found
+        500: Internal server error 
+    """  
+    operation = {}
+    return operation
+
+###############################################################################
+# Workflows
+###############################################################################
+
 # Build a workflow orchestrated with queues
 # In:
 #    {
@@ -142,17 +248,20 @@ def index():
 @app.route('/workflow', cors=True, methods=['POST'])
 def create_workflow():
 
-    table_name = WORKFLOW_TABLE_NAME
+    workflow_table_name = WORKFLOW_TABLE_NAME
 
     try:
-        table = DYNAMO_RESOURCE.Table(table_name)
+        workflow_table = DYNAMO_RESOURCE.Table(workflow_table_name)
 
         print(app.current_request.json_body)
 
         workflow_configuration = app.current_request.json_body
 
-        # temporary scaffolding - support only 3 stage pipeline for MAS
+        
+
+        # temporary scaffolding - hard code
         workflow = DEFAULT_WORKFLOW_SQS
+
 
         # save workflow configuration
 
@@ -161,7 +270,7 @@ def create_workflow():
 
         print(json.dumps(workflow))
         #workflow["createTime"] = int(time.time())
-        table.put_item(Item=workflow)
+        workflow_table.put_item(Item=workflow)
 
     except Exception as e:
         logger.info("Exception {}".format(e))
@@ -192,64 +301,107 @@ def initialize_workflow_execution(workflow, workflow_configuration):
 # In:
 #    {
 #    "name":"",
-#    "mediaTypes: []"
-#    "Operations: {
-#        OperationName: {
-#            "mediaType":mediaType,
-#            "inputs": {
-#                inputName: {
-#                    "type": typeName,
-#                ...}}
+#    "Operations[operation1, operation2, operation3, ...]
 #     }
-#     baseStateMachineArn:
-#     stateMachineArn:
-#     }
-#
-# Inputs override stage defaults
 
+TEMP_ROLE = "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN"
+
+################################################################################################
+# Stages
+################################################################################################
 
 @app.route('/workflow/stage', cors=True, methods=['POST'])
 def create_stage():
 
-    table_name = STAGE_TABLE_NAME
+    stage_table_name = STAGE_TABLE_NAME
+    operation_table_name = OPERATION_TABLE_NAME    
+
+    
 
     try:
-        table = DYNAMO_RESOURCE.Table(table_name)
+        stage_table = DYNAMO_RESOURCE.Table(stage_table_name)
+        operation_table = DYNAMO_RESOURCE.Table(operation_table_name)
 
         print(app.current_request.json_body)
 
         stage = app.current_request.json_body
+        name = stage["name"]
 
-        # temporary scaffolding - support only 3 stage pipeline for MAS
-        workflow = DEFAULT_WORKFLOW_SQS
+        # Build the stage state machine
+        stageAsl = {
+            "StartAt": "Preprocess Media",
+            "States": {
+                "Complete Stage": {
+                    "Type": "Task",
+                        "Resource": "arn:aws:lambda:us-east-1:526662735483:function:mas-workflow-MediaAnalysi-CompleteStageExecutionLa-1CE5AAOFHDZXM",
+                        "End": True
+                }        
+            }
+        }
+        stageAsl["StartAt"] = name
+        stageAsl["States"][name] = {
+                "Type": "Parallel",
+                "Next": "Complete Stage",
+                "ResultPath": "$.stage",
+                "Branches": [
+                ]
+            }
 
-        # save workflow configuration
+        # Add a branch for each operation   
+        for op in stage["operations"]:
+        # lookup base workflow
+            response = operation_table.get_item(
+                Key={
+                    'name': op
+                })
 
-        workflow = initialize_workflow_execution(
-            workflow, workflow_configuration)
+            if "Item" in response:
+                operation = response["Item"]
+            else:
+                stage = None
+                raise ChaliceViewError(
+                    "Exception: operation '%s' not found" % operation)
 
-        #workflow["createTime"] = int(time.time())
-        table.put_item(Item=workflow)
+            stageAsl["States"][name]["Branches"].append(json.loads(operation["stateMachineASL"]))
+
+        print (json.dumps(stageAsl))
+
+        response = SFN_CLIENT.create_state_machine(
+            name=name,
+            definition=json.dumps(stageAsl),
+            roleArn=TEMP_ROLE
+        )
+
+        stage["stateMachineArn"] = response["stateMachineArn"]
+        
+        stage_table.put_item(Item=stage)
 
     except Exception as e:
         logger.info("Exception {}".format(e))
-        workflow = None
+        stage = None
         raise ChaliceViewError("Exception '%s'" % e)
 
-    return workflow
+    return stage
+
+@app.route('/workflow/stage', cors=True, methods=['PUT'])
+def update_stage(): 
+    stage = {}
+    return stage
+
+@app.route('/workflow/stage', cors=True, methods=['GET'])
+def list_stages(): 
+    stages = []
+    return stages
+
+@app.route('/workflow/stage/{name}', cors=True, methods=['GET'])
+def get_stage_by_name(name): 
+    stage = {}
+    return stage
 
 
-@app.route('/workflow/{workflowId}')
-def get_workflow_by_id():
-    response = {}
-    return response
-
-
-@app.route('/workflow')
-def get_workflow():
-    response = {}
-    return response
-
+# ================================================================================================
+# Workflow Executions
+# ================================================================================================
 
 # In:
 #     workflowId
@@ -346,6 +498,8 @@ def create_workflow_execution(trigger, workflow_execution):
             raise ChaliceViewError(
                 "Exception: workflow id '%s' not found" % workflow_execution["workflowId"])
 
+        # FIXME - construct stages from stage table at runtime to get latest defintion
+
         workflow_execution["workflow"] = initialize_workflow_execution(
             workflow, workflow_execution)
 
@@ -417,6 +571,17 @@ def lambda_arn(name):
 
 # @app.on_sqs_message(queue='Analysis', batch_size=1)
 
+@app.route('/workflow/{workflowId}')
+def get_workflow_by_id():
+    response = {}
+    return response
+
+
+@app.route('/workflow')
+def get_workflow():
+    response = {}
+    return response
+
 @app.route('/workflow/execution/nextstage', cors=True, methods=['POST'])
 def execute_next_stage():
     
@@ -470,7 +635,7 @@ def execute_stage(input_stage):
             sfn_input = map_analysis_sfn_input(stage)
         
         print(sfn_input)
-        response = SFN_FUNCTION_CLIENT.start_execution(
+        response = SFN_CLIENT.start_execution(
             stateMachineArn=stage["StateMachine"],
             name=stage["name"]+workflow_execution_id,
             input=json.dumps(sfn_input)
@@ -795,24 +960,4 @@ def start_next_stage_execution(trigger, workflow_execution):
     return workflow_execution
 
 
-# The view function above will return {"hello": "world"}
-# whenever you make an HTTP GET request to '/'.
-#
-# Here are a few more examples:
-#
-# @app.route('/hello/{name}')
-# def hello_name(name):
-#    # '/hello/james' -> {"hello": "james"}
-#    return {'hello': name}
-#
-# @app.route('/users', methods=['POST'])
-# def create_user():
-#     # This is the JSON body the user sent in their POST request.
-#     user_as_json = app.current_request.json_body
-#     # We'll echo the json body back to the user in a 'user' key.
-#     return {'user': user_as_json}
-#
-# See the README documentation for more examples.
-#
 
-# Build a workflow orchestrated with step functions

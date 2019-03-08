@@ -14,7 +14,7 @@
     "image": {
         "s3bucket": "bar",
         "s3key": "foo",
-        "fileType": "mp4"
+        "fileType": "jpeg"
         }
     }
 
@@ -26,22 +26,26 @@
 # Definition:
 "operation-name": {
     "configuration" : {
-        "mediaType": "video"
+        "mediaType": "video",
         "enabled:": True,
         "configruation1": "value1",
         "configruation2": "value2"
     },
     "input": {
         "metadata": {
-            "input1": "type"
+            "name":"input1",
+            "type":"string",
+            "required": false
         }
-    }
+    },
+
 }
 
 # Execution input:
 "operation-name": {
+    "workflowExecutionId": guid,
     "configuration" : {
-        "mediaType": "video"
+        "mediaType": "video",
         "enabled:": True,
         "configruation1": "value1",
         "configruation2": "value2"
@@ -55,19 +59,21 @@
 }
 
 # Execution output:
+
 "operation-name": {
+    "workflowExecutionId": guid,
     "configuration" : {
-        "mediaType": "video"
+        "mediaType": "video",
         "enabled:": True,
         "configruation1": "value1",
         "configruation2": "value2"
     },
     "input": {
-        "media": media 
+        "media": media ,
         "metadata" : metadata         
         },
     "output": {
-        "media": media 
+        "media": media ,
         "metadata" : metadata         
         },
     },
