@@ -1,0 +1,23 @@
+{
+        "workflowExecutionId": "",
+        "configuration" : {
+            "mediaconvert": {
+                "mediaType": "video",
+                "enabled": true,
+                "job_id": ""
+            }
+        },
+        "input": {
+            "media": 
+            {
+                "video": 
+                {
+                    "s3bucket": "",
+                    "s3key": "video/brandtest.mp4",
+                    "fileType": "mp4"
+                }
+            }
+        },
+        "output": "",
+        "status": "Not Started"
+}

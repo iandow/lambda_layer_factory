@@ -1,0 +1,224 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  SourceBucket:
+    Type: "String"
+    Description: "Bucket that contains the source code"
+  startMediaConvertCode:
+    Type: "String"
+    Description: "S3 Key of the start mediaconvert code"
+    Default: "startMediaConvert.zip"
+  checkMediaConvertCode:
+    Type: "String"
+    Description: "S3 Key of the check mediaconvert code"
+    Default: "getMediaConvert.zip"
+  dataStoreBucket:
+    Type: "String"
+    Description: "The bucket created by your CF datastore deployment (Arn format: 'arn:aws:s3:::${dataStore}/*') "
+
+Resources:
+# IAM Roles:
+  stepFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "states.amazonaws.com"
+      Policies:
+        - PolicyName: "skySFNLambdaAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+  mediaConvertRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+       AssumeRolePolicyDocument:
+         Version: "2012-10-17"
+         Statement:
+           -
+             Effect: "Allow"
+             Principal:
+               Service:
+                 - "mediaconvert.amazonaws.com"
+             Action:
+               - "sts:AssumeRole"
+       Policies:
+         -
+           PolicyName: "skyMediaconvertAllowS3"
+           PolicyDocument:
+             Version: "2012-10-17"
+             Statement:
+               -
+                 Effect: "Allow"
+                 Action:
+                   - "s3:GetObject"
+                   - "s3:PutObject"
+                 Resource: !Ref dataStoreBucket
+  preprocessRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        -
+          PolicyName: "skyTranscribeAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+              - Action: "mediaconvert:*"
+                Resource: "*"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Ref dataStoreBucket
+                Effect: "Allow"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*:*'
+                Effect: "Allow"
+              - Action:
+                  - "iam:PassRole"
+                Resource: !GetAtt "mediaConvertRole.Arn"
+                Effect: "Allow"
+
+# Lambda Functions:
+
+  skyStartMediaConvertFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "startMediaConvert.handler"
+      Role: !GetAtt "preprocessRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "startMediaConvertCode"
+      Runtime: "nodejs8.10"
+      Environment:
+        Variables:
+          mediaconvertRole: !GetAtt "mediaConvertRole.Arn"
+
+  skyCheckMediaConvertFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "getMediaConvert.handler"
+      Role: !GetAtt "preprocessRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "checkMediaConvertCode"
+      Runtime: "nodejs8.10"
+
+# Step Function
+
+  preprocessStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "skyPreprocessStateMachine"
+      DefinitionString: !Sub |-
+        {
+                  "StartAt": "Is Type?",
+                  "States": {
+                    "Is Type?": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.configuration.mediaconvert.mediaType",
+                          "StringEquals": "video",
+                          "Next": "Media Convert Enabled?"
+                        }
+                      ],
+                      "Default": "Media Convert Not Started"
+                    },
+                    "Media Convert Enabled?": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.configuration.mediaconvert.enabled",
+                          "BooleanEquals": true,
+                          "Next": "Start MediaConvert"
+                        }
+                      ],
+                      "Default": "Media Convert Not Started"
+                    },
+                    "Media Convert Not Started": {
+                      "Type": "Succeed"
+                    },
+                    "Start MediaConvert": {
+                      "Type": "Task",
+                      "Resource": "${skyStartMediaConvertFunction.Arn}",
+                      "InputPath": "$",
+                      "ResultPath": "$",
+                      "Next": "Did MediaConvert Start"
+                    },
+                    "Did MediaConvert Start": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "StringEquals": "IN_PROGRESS",
+                          "Next": "MediaConvert Wait"
+                        }
+                      ],
+                      "Default": "Media Convert Failed"
+                    },
+                    "MediaConvert Wait": {
+                      "Type": "Wait",
+                      "Seconds": 30,
+                      "Next": "Get MediaConvert Status"
+                    },
+                    "Get MediaConvert Status": {
+                      "Type": "Task",
+                      "Resource": "${skyCheckMediaConvertFunction.Arn}",
+                      "InputPath": "$",
+                      "ResultPath": "$",
+                      "Next": "Did MediaConvert Complete",
+                      "Catch": [
+                        {
+                          "ErrorEquals": [
+                            "Error"
+                          ],
+                          "Next": "Media Convert Failed"
+                        }
+                      ]
+                    },
+                    "Did MediaConvert Complete": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.status",
+                          "StringEquals": "FAILED",
+                          "Next": "Media Convert Failed"
+                        },
+                        {
+                          "Variable": "$.status",
+                          "StringEquals": "COMPLETE",
+                          "Next": "Media Convert Succeeded"
+                        }
+                      ],
+                      "Default": "MediaConvert Wait"
+                    },
+                    "Media Convert Failed": {
+                      "Type": "Fail"
+                    },
+                    "Media Convert Succeeded": {
+                      "Type": "Succeed"
+                    }
+                  }
+                }
+      RoleArn: !GetAtt "stepFunctionRole.Arn"
