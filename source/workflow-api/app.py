@@ -3,6 +3,7 @@ from chalice import NotFoundError, BadRequestError, ChaliceViewError, Response
 import boto3
 from boto3 import resource
 from botocore.client import ClientError
+
 import uuid
 import logging
 import os
@@ -19,25 +20,50 @@ API_STAGE = "dev"
 app = Chalice(app_name=APP_NAME)
 app.debug = True
 
+# FIXME - need to pacakge this so it can be included in operation lambdas
+WORKFLOW_STATUS_STARTED = "Started"
+WORKFLOW_STATUS_ERROR = "Error"
+WORKFLOW_STATUS_COMPLETE = "Complete"
+
+STAGE_STATUS_NOT_STARTED = "Not Started"
+STAGE_STATUS_STARTED = "Started"
+STAGE_STATUS_EXECUTING = "Executing"
+STAGE_STATUS_ERROR = "Error"
+STAGE_STATUS_COMPLETE = "Complete"
+
+OPERATION_STATUS_NOT_STARTED = "Not Started"
+OPERATION_STATUS_STARTED = "Started"
+OPERATION_STATUS_EXECUTING = "Executing"
+OPERATION_STATUS_ERROR = "Error"
+OPERATION_STATUS_COMPLETE = "Complete"
+
 # Setup logging
+# Logging Configuration
+#extra = {'requestid': app.current_request.context}
+# fmt = '[%(levelname)s] [%(funcName)s] - %(message)s'
+# logger = logging.getLogger('LUCIFER')
+# logging.basicConfig(format=fmt)
+# root = logging.getLogger()
+# if root.handlers:
+#     for handler in root.handlers:
+#         root.removeHandler(handler)
+# logging.basicConfig(format=fmt)
 logger = logging.getLogger('boto3')
 logger.setLevel(logging.INFO)
 
+
 WORKFLOW_TABLE_NAME = os.environ["WORKFLOW_TABLE_NAME"]
-#STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
-STAGE_TABLE_NAME = "mas-workflowStage"
-#OPERATION_TABLE_NAME = os.environ["OPERATION_TABLE_NAME"]
-OPERATION_TABLE_NAME = "mas-workflowOperation"
+STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
+#STAGE_TABLE_NAME = "mas-workflowStage"
+OPERATION_TABLE_NAME = os.environ["OPERATION_TABLE_NAME"]
+#OPERATION_TABLE_NAME = "mas-workflowOperation"
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
-
+COMPLETE_STAGE_LAMBDA_ARN = os.environ["COMPLETE_STAGE_LAMBDA_ARN"]
 # FIXME - need create stage API and custom resource to break circular dependency
-PREPROCESS_STATE_MACHINE_ARN 
-    = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
-ANALYSIS_STATE_MACHINE_ARN 
-    = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
-POSTPROCESS_STATE_MACHINE_ARN 
-    = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
+PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
+ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
+POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
 
 # DynamoDB
 DYNAMO_CLIENT = boto3.client("dynamodb")
@@ -73,6 +99,7 @@ DEFAULT_WORKFLOW_SQS = {
 
 # Helper class to convert a DynamoDB item to JSON.
 
+
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, decimal.Decimal):
@@ -85,11 +112,18 @@ def index():
     return {'hello': 'world'}
 
 ##############################################################################
-# Operations
+#    ___                       _
+#   / _ \ _ __   ___ _ __ __ _| |_ ___  _ __ ___
+#  | | | | '_ \ / _ \ '__/ _` | __/ _ \| '__/ __|
+#  | |_| | |_) |  __/ | | (_| | || (_) | |  \__ \
+#   \___/| .__/ \___|_|  \__,_|\__\___/|_|  |___/
+#        |_|
+#
 ##############################################################################
 
+
 @app.route('/workflow/operation', cors=True, methods=['POST'])
-def create_operation(): 
+def create_operation():
     """ Registers a new operator with the workflow engine
 
     The body defines the configuration parameters for the operator, the 
@@ -105,21 +139,15 @@ def create_operation():
     for the state machine must be specified in the body.
 
     Body: 
-        "operation-name": {
+        {
+            "name": "string",
             "configuration" : {
                 "mediaType": "video",
                 "enabled:": True,
-                "configruation1": "value1",
-                "configruation2": "value2",
+                "configuration1": "value1",
+                "configuration2": "value2",
                 ...
-            },
-            "input": {
-                "metadata": {
-                    "name":"input1",
-                    "type":"string",
-                    "required": false
-                }
-            },
+            }
             "stateMachineArn":arn,
             "stateMachineExecutionRoleArn":arn
 
@@ -127,7 +155,7 @@ def create_operation():
 
     Returns:
         A dict mapping keys to the corresponding operation created including 
-        the ASL for the duplicated state machine a guid and a create time.
+        the ASL for the duplicated state machine an id and a create time.
 
     Raises:
         200: The operation was created successfully.
@@ -139,50 +167,54 @@ def create_operation():
 
     try:
         table = DYNAMO_RESOURCE.Table(table_name)
-
-        print(app.current_request.json_body)
-
         operation = app.current_request.json_body
+        logger.info(operation)
 
         # save operation configuration
 
-        print(json.dumps(operation))
+        logger.info(json.dumps(operation))
         for k, v in operation.items():
-            print(k, v)
+            logger.info("{} {}".format(k, v))
 
         name = k
-        if "stateMachineArn" in operation:
+        operation["name"] = name
+        operation['id'] = str(uuid.uuid4())
+        operation['createTime'] = int(time.time())
 
+        # FIXME get rid of opertion as key in this
+        if "stateMachineArn" in operation[name]:
+            logger.info("lookup state machine for operation")
             response = SFN_CLIENT.describe_state_machine(
                 stateMachineArn=operation[name]["stateMachineArn"]
-                )
+            )
 
             operation["stateMachineASL"] = response["definition"]
-            
-        operation["name"] = name
-        
+            logger.info(response)
+
         table.put_item(Item=operation)
 
     except SFN_CLIENT.exceptions.NotFoundException as e:
+        logger.error("SFN_CLIENT.exceptions.NotFoundException")
         raise BadRequestError("State machine ARN {} not found. Error: {}"
-            .format(operation[name]["stateMachineArn"], e))
+                              .format(operation[name]["stateMachineArn"], e))
 
     except Exception as e:
-        logger.info("Exception {}".format(e))
+        logger.error("Exception {}".format(e))
         operation = None
         raise ChaliceViewError("Exception '%s'" % e)
 
     return operation
-    
+
 
 @app.route('/workflow/operation', cors=True, methods=['PUT'])
-def update_operation(): 
-    operation = {}
+def update_operation():
+    operation = {"Message": "Update on stages in not implemented"}
     return operation
+
 
 @app.route('/workflow/operation', cors=True, methods=['GET'])
 def list_operations():
-    """ List all operators
+    """ List all operation defintions
 
     Returns:
         A list of operation definitions.
@@ -190,10 +222,10 @@ def list_operations():
     Raises:
         200: All operations returned sucessfully.
         500: Internal server error 
-    """ 
+    """
 
     table = DYNAMO_RESOURCE.Table(OPERATION_TABLE_NAME)
-    
+
     response = table.scan()
     operations = response['Items']
     while 'LastEvaluatedKey' in response:
@@ -202,8 +234,9 @@ def list_operations():
 
     return operations
 
+
 @app.route('/workflow/operation/{name}', cors=True, methods=['GET'])
-def get_operations_by_name(name):
+def get_operation_by_name(name):
     """ Get an operation definition by name
 
     Returns:
@@ -213,119 +246,83 @@ def get_operations_by_name(name):
         200: All operations returned sucessfully.
         404: Not found
         500: Internal server error 
-    """  
-    operation = {}
+    """
+    operation_table = DYNAMO_RESOURCE.Table(OPERATION_TABLE_NAME)
+    operation = None
+    response = operation_table.get_item(
+        Key={
+            'name': name
+        })
+
+    if "Item" in response:
+        operation = response["Item"]
+    else:
+        raise NotFoundError(
+            "Exception: operation '%s' not found" % name)
+
     return operation
 
-###############################################################################
-# Workflows
-###############################################################################
-
-# Build a workflow orchestrated with queues
-# In:
-#    {
-#    "name":"Default",
-#    "stageConfiguration": {
-#        {
-#        Preprocess": {
-#            Operations: {
-#               "SplitAudio": {
-#                   "enabled": True,
-#                   "mediaTypes": {
-#                       "video": True/False,
-#                       "audio": True/False,
-#                       "segment": True/False
-#                       "frame": True/False
-#                    }
-#                },
-#            },
-#        }
-#        ...
-#        }
-#     }
-#
-# Inputs override stage defaults
-@app.route('/workflow', cors=True, methods=['POST'])
-def create_workflow():
-
-    workflow_table_name = WORKFLOW_TABLE_NAME
-
-    try:
-        workflow_table = DYNAMO_RESOURCE.Table(workflow_table_name)
-
-        print(app.current_request.json_body)
-
-        workflow_configuration = app.current_request.json_body
-
-        
-
-        # temporary scaffolding - hard code
-        workflow = DEFAULT_WORKFLOW_SQS
-
-
-        # save workflow configuration
-
-        workflow = initialize_workflow_execution(
-            workflow, workflow_configuration)
-
-        print(json.dumps(workflow))
-        #workflow["createTime"] = int(time.time())
-        workflow_table.put_item(Item=workflow)
-
-    except Exception as e:
-        logger.info("Exception {}".format(e))
-        workflow = None
-        raise ChaliceViewError("Exception '%s'" % e)
-
-    return workflow
-
-def initialize_workflow_execution(workflow, workflow_configuration):
-
-    for stage, configuration in workflow_configuration.items():
-
-        # Override default configuration with passed in configuration
-        if "stageConfiguration" in workflow_configuration:
-            if stage in workflow["Stages"]:
-                workflow["Stages"][stage]["Configuration"] = configuration
-            else:
-                workflow = None
-                raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
-
-    for stage in workflow["Stages"]:
-        workflow["Stages"][stage]["status"] = STAGE_STATUS_NOT_STARTED
-        workflow["Stages"][stage]["metrics"] = {}
-
-    return workflow
-
-# Build a stage
-# In:
-#    {
-#    "name":"",
-#    "Operations[operation1, operation2, operation3, ...]
-#     }
-
-TEMP_ROLE = "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN"
 
 ################################################################################################
-# Stages
+#   ____  _
+#  / ___|| |_ __ _  __ _  ___ ___
+#  \___ \| __/ _` |/ _` |/ _ / __|
+#   ___) | || (_| | (_| |  __\__ \
+#  |____/ \__\__,_|\__, |\___|___/
+#                  |___/
+#
 ################################################################################################
 
 @app.route('/workflow/stage', cors=True, methods=['POST'])
 def create_stage():
-
-    stage_table_name = STAGE_TABLE_NAME
-    operation_table_name = OPERATION_TABLE_NAME    
-
+    """ Create a stage state machine from a list of existing operations.  
     
+    A stage is a set of operations that are grouped so they can be executed in parallel.
+    When the stage is executed as part of a workflow, operations within a stage are executed as
+    branches in a parallel state.  The generated state machines status is tracked by the 
+    workflow engine control plane during execution.
 
+    Body: 
+        {
+        "name":"stage-name",
+        "operations": ["operation-name1", "operation-name2", ...]
+        }
+
+    Returns:
+        A dict mapping keys to the corresponding stage created including 
+        the ARN of the state machine created. 
+
+        {
+            "name": "stage-name",
+            "operations": [
+                "operation-name1",
+                "operation-name2", 
+                ...
+            ],
+            "configuration": {
+                "operation-name1": operation-configuration-object1,
+                "operation-name2": operation-configuration-object1,
+                ...
+            }
+            "stateMachineArn": ARN-string
+        }
+
+    Raises:
+        200: The stage was created successfully.
+        400: Bad Request - one of the input state machines was not found or was invalid
+        500: Internal server error 
+    """
     try:
-        stage_table = DYNAMO_RESOURCE.Table(stage_table_name)
-        operation_table = DYNAMO_RESOURCE.Table(operation_table_name)
+        stage = None
+        configuration = {}
 
-        print(app.current_request.json_body)
+        stage_table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
+
+        logger.info(app.current_request.json_body)
 
         stage = app.current_request.json_body
         name = stage["name"]
+        stage["resource"] = STAGE_EXECUTION_QUEUE_URL
 
         # Build the stage state machine
         stageAsl = {
@@ -333,47 +330,44 @@ def create_stage():
             "States": {
                 "Complete Stage": {
                     "Type": "Task",
-                        "Resource": "arn:aws:lambda:us-east-1:526662735483:function:mas-workflow-MediaAnalysi-CompleteStageExecutionLa-1CE5AAOFHDZXM",
-                        "End": True
-                }        
+                    "Resource": COMPLETE_STAGE_LAMBDA_ARN,
+                    "End": True
+                }
             }
         }
         stageAsl["StartAt"] = name
         stageAsl["States"][name] = {
-                "Type": "Parallel",
-                "Next": "Complete Stage",
-                "ResultPath": "$.stage",
-                "Branches": [
-                ]
-            }
+            "Type": "Parallel",
+            "Next": "Complete Stage",
+            "ResultPath": "$.stage",
+            "Branches": [
+            ]
+        }
 
-        # Add a branch for each operation   
+        # Add a branch for each operation
         for op in stage["operations"]:
-        # lookup base workflow
-            response = operation_table.get_item(
-                Key={
-                    'name': op
-                })
+            # lookup base workflow
+            operation = get_operation_by_name(op)
+            #logger.info(json.dumps(operation))
 
-            if "Item" in response:
-                operation = response["Item"]
-            else:
-                stage = None
-                raise ChaliceViewError(
-                    "Exception: operation '%s' not found" % operation)
+            stageAsl["States"][name]["Branches"].append(
+                json.loads(operation["stateMachineASL"]))
+            
+            configuration[op] = operation[op]["configuration"]
 
-            stageAsl["States"][name]["Branches"].append(json.loads(operation["stateMachineASL"]))
-
-        print (json.dumps(stageAsl))
+        logger.info(json.dumps(stageAsl))
+        
+        stage["configuration"] = configuration
 
         response = SFN_CLIENT.create_state_machine(
             name=name,
             definition=json.dumps(stageAsl),
             roleArn=TEMP_ROLE
-        )
+        )    
 
         stage["stateMachineArn"] = response["stateMachineArn"]
         
+
         stage_table.put_item(Item=stage)
 
     except Exception as e:
@@ -383,66 +377,315 @@ def create_stage():
 
     return stage
 
+
 @app.route('/workflow/stage', cors=True, methods=['PUT'])
-def update_stage(): 
-    stage = {}
+def update_stage():
+    stage = {"message":"NOT IMPLEMENTED"}
     return stage
+
 
 @app.route('/workflow/stage', cors=True, methods=['GET'])
-def list_stages(): 
-    stages = []
+def list_stages():
+    """ List all stage defintions
+
+    Returns:
+        A list of operation definitions.
+
+    Raises:
+        200: All operations returned sucessfully.
+        500: Internal server error 
+    """
+
+    table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
+
+    response = table.scan()
+    stages = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        stages.extend(response['Items'])
+
     return stages
 
+
 @app.route('/workflow/stage/{name}', cors=True, methods=['GET'])
-def get_stage_by_name(name): 
-    stage = {}
+def get_stage_by_name(name):
+    """ Get a stage definition by name
+
+    Returns:
+        A dictionary contianing the stage definition.
+
+    Raises:
+        200: All stages returned sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    stage_table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
+    stage = None
+    response = stage_table.get_item(
+        Key={
+            'name': name
+        })
+
+    if "Item" in response:
+        stage = response["Item"]
+    else:
+        raise NotFoundError(
+            "Exception: stage '%s' not found" % name)
+
+    return stage
+
+###############################################################################
+#  __        __         _     __ _
+#  \ \      / /__  _ __| | __/ _| | _____      _____
+#   \ \ /\ / / _ \| '__| |/ / |_| |/ _ \ \ /\ / / __|
+#    \ V  V / (_) | |  |   <|  _| | (_) \ V  V /\__ \
+#     \_/\_/ \___/|_|  |_|\_\_| |_|\___/ \_/\_/ |___/
+#
+###############################################################################
+
+
+@app.route('/workflow', cors=True, methods=['POST'])
+def create_workflow():
+    """ Create a workflow from a list of existing stages.  
+    
+    A workflow is a pipeline of stages that are executed sequentially to transform and 
+    extract metadata for a set of mediaType objects.  Each stage must contain either a 
+    "Next" key indicating the next stage to execute or and "End" key indicating it
+    is the last stage.
+
+    Body: 
+        {
+            "name": string,
+            "StartAt": string - name of starting stage,
+            "Stages": {
+                "stage-name": {
+                    "Next": "string - name of next stage"
+                },
+                ...,
+                "stage-name": {
+                    "End": true
+                }
+            }
+        }
+    
+
+    Returns:
+        A dict mapping keys to the corresponding workflow created including the 
+        AWS resources used to execute each stage.        
+
+        {
+            "name": string,
+            "StartAt": string - name of starting stage,
+            "Stages": {
+                "stage-name": {
+                    "Resource": queueARN,
+                    "StateMachine": stateMachineARN,
+                    "configuration": stageConfigurationObject,
+                    "Next": "string - name of next stage"
+                },
+                ...,
+                "stage-name": {
+                    "Resource": queueARN,
+                    "StateMachine": stateMachineARN,
+                    "configuration": stageConfigurationObject,
+                    "End": true
+                }
+            }
+        }
+        
+
+    Raises:
+        200: The workflow was created successfully.
+        400: Bad Request - one of the input stages was not found or was invalid
+        500: Internal server error 
+    """
+
+    try:
+        workflow_table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+
+        logger.info(app.current_request.json_body)
+
+        workflow = app.current_request.json_body
+        logger.info(json.dumps(workflow))
+        #workflow["createTime"] = int(time.time())
+        
+        for name, stage in workflow["Stages"].items():
+            s = get_stage_by_name(name)
+            stage.update(s)
+
+        workflow_table.put_item(Item=workflow)
+
+    except Exception as e:
+        logger.info("Exception {}".format(e))
+        workflow = None
+        raise ChaliceViewError("Exception '%s'" % e)
+
+    return workflow
+
+
+TEMP_ROLE = "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN"
+
+@app.route('/workflow', cors=True, methods=['PUT'])
+def update_workflow():
+    stage = {"message":"UPDATE WORKFLOW NOT IMPLEMENTED"}
     return stage
 
 
-# ================================================================================================
-# Workflow Executions
-# ================================================================================================
+@app.route('/workflow', cors=True, methods=['GET'])
+def list_workflows():
+    """ List all workflow defintions
 
-# In:
-#     workflowId
-#     mediaType
-#     s3Object
-#     parentWorkflowExecutionId
+    Returns:
+        A list of workflow definitions.
+
+    Raises:
+        200: All workflows returned sucessfully.
+        500: Internal server error 
+    """
+
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+
+    response = table.scan()
+    workflows = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        workflows.extend(response['Items'])
+
+    return workflows
+
+
+@app.route('/workflow/{name}', cors=True, methods=['GET'])
+def get_workflow_by_name(name):
+    """ Get a workflow definition by name
+
+    Returns:
+        A dictionary contianing the workflow definition.
+
+    Raises:
+        200: All workflows returned sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+    workflow = None
+    response = table.get_item(
+        Key={
+            'name': name
+        })
+
+    if "Item" in response:
+        workflow = response["Item"]
+    else:
+        raise NotFoundError(
+            "Exception: workflow '%s' not found" % name)
+
+    return workflow
+
+@app.route('/workflow/configuration/{name}', cors=True, methods=['GET'])
+def get_workflow_configuration_by_name(name):
+    """ Get a workflow configruation object by name
+
+    Returns:
+        A dictionary contianing the workflow configuration.
+
+    Raises:
+        200: All workflows returned sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+    workflow = None
+    response = table.get_item(
+        Key={
+            'name': name
+        })
+
+    if "Item" in response:
+        workflow = response["Item"]
+        configuration = {}
+        for name, stage in workflow["Stages"].items():
+            configuration[name] = stage["configuration"]
+
+    else:
+        raise NotFoundError(
+            "Exception: workflow '%s' not found" % name)
+
+    return configuration
+
+
+# ================================================================================================
+#  __        __         _     __ _                 _____                     _   _
+#  \ \      / /__  _ __| | __/ _| | _____      __ | ____|_  _____  ___ _   _| |_(_) ___  _ __  ___
+#   \ \ /\ / / _ \| '__| |/ / |_| |/ _ \ \ /\ / / |  _| \ \/ / _ \/ __| | | | __| |/ _ \| '_ \/ __|
+#    \ V  V / (_) | |  |   <|  _| | (_) \ V  V /  | |___ >  <  __/ (__| |_| | |_| | (_) | | | \__ \
+#     \_/\_/ \___/|_|  |_|\_\_| |_|\___/ \_/\_/   |_____/_/\_\___|\___|\__,_|\__|_|\___/|_| |_|___/
 #
-# create guid or compound key (video, segment, frame, version)
-# Build a workflow orchestrated with queues
-# In:
-#    {
-#    "name":"Default",
-#    "input": {
-#        "media": {
-#            type:object
-#         }
-#         "metadata": {}
-#    "stageConfiguration": {
-#        {
-#        Preprocess": {
-#            Operations: {
-#               "SplitAudio": {
-#                   "enabled": True,
-#                   "mediaTypes": {
-#                       "video": True/False,
-#                       "audio": True/False,
-#                       "frame": True/False
-#                    }
-#                },
-#            },
-#        }
-#        ...
-#        }
-#     }
-#
-# stageConfiguration Inputs override workflow stage defaults
+# ================================================================================================
 
 @app.route('/workflow/execution', cors=True, methods=['POST'])
 def create_workflow_execution_api():
+    """ Execute a workflow.  
+    
+    The Body contains the name of the workflow to execute, at least one input 
+    media type within the media object.  A dictionary of stage configuration 
+    objects can be passed in to override the default configuration of the operations
+    within the stages.
 
-    print(app.current_request.json_body)
+    Body: 
+        {
+        "name":"Default",
+        "input": media-object
+        "stageConfiguration": {
+            {
+            "stage-name": {
+                "operations: {
+                    "SplitAudio": {
+                       "enabled": True,
+                       "mediaTypes": {
+                           "video": True/False,
+                           "audio": True/False,
+                           "frame": True/False
+                       }
+                   },
+               },
+           }
+           ...
+           }
+        }
+    
+
+    Returns:
+        A dict mapping keys to the corresponding workflow execution created including 
+        the workflowExecutionId, the AWS queue and state machine resources assiciated with
+        the workflow execution and the current execution status of the workflow. 
+
+        {
+            "name": string,
+            "StartAt": "Preprocess",
+            "Stages": {
+                "stage-name": {
+                    "Type": "NestedQueue",
+                    "Resource": queueARN,
+                    "StateMachine": stateMachineARN,
+                    "Next": "Analysis"
+                },
+                ...,
+                "stage-name: {
+                    "Type": "NestedQueue",
+                    "Resource": queueARN,
+                    "StateMachine": stateMachineARN,
+                    "End": true
+                }
+            }
+        }
+
+    Raises:
+        200: The workflow execution was created successfully.
+        400: Bad Request - the input workflow was not found or was invalid
+        500: Internal server error  
+    """
+
+    logger.info(app.current_request.json_body)
     workflow_execution = app.current_request.json_body
 
     return create_workflow_execution("api", workflow_execution)
@@ -451,7 +694,7 @@ def create_workflow_execution_api():
 @app.lambda_function()
 def create_workflow_execution_s3(event, context):
 
-    print(event)
+    logger.info(event)
 
     workflow_execution = {
         "name": "mas-Default",
@@ -506,7 +749,7 @@ def create_workflow_execution(trigger, workflow_execution):
         workflow_execution = start_first_stage_execution(
             "workflow", workflow_execution)
 
-        print(json.dumps(workflow))
+        logger.info(json.dumps(workflow))
         execution_table.put_item(Item=workflow_execution)
 
     except Exception as e:
@@ -515,23 +758,41 @@ def create_workflow_execution(trigger, workflow_execution):
 
     return workflow_execution
 
+def initialize_workflow_execution(workflow, workflow_configuration):
+
+    for stage, configuration in workflow_configuration.items():
+
+        # Override default configuration with passed in configuration
+        if "stageConfiguration" in workflow_configuration:
+            if stage in workflow["Stages"]:
+                workflow["Stages"][stage]["Configuration"] = configuration
+            else:
+                workflow = None
+                raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
+
+    for stage in workflow["Stages"]:
+        workflow["Stages"][stage]["status"] = STAGE_STATUS_NOT_STARTED
+        workflow["Stages"][stage]["metrics"] = {}
+
+    return workflow
 
 def start_first_stage_execution(trigger, workflow_execution):
 
     try:
-        print("STARTING FIRST STAGE")
+        logger.info("STARTING FIRST STAGE")
 
-        print(workflow_execution)
+        logger.info(workflow_execution)
         current_stage = workflow_execution["workflow"]["StartAt"]
         workflow_execution["current_stage"] = current_stage
 
         workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
-        #workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
+        # workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
         #    time.time())
         workflow_execution["workflow"]["Stages"][current_stage]["status"] = STAGE_STATUS_STARTED
 
         try:
-            logger.info("Starting next stage for workflow_execution_id:"+workflow_execution["id"])
+            logger.info(
+                "Starting next stage for workflow_execution_id:"+workflow_execution["id"])
             logger.info(json.dumps(
                 workflow_execution["workflow"]["Stages"][current_stage]))
 
@@ -540,8 +801,8 @@ def start_first_stage_execution(trigger, workflow_execution):
                 "stage": workflow_execution["workflow"]["Stages"][current_stage]
             }
 
-            print("QUEUE workitem:")
-            print(json.dumps(workitem))
+            logger.info("QUEUE workitem:")
+            logger.info(json.dumps(workitem))
 
             response = SQS_CLIENT.send_message(
                 QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
@@ -558,54 +819,33 @@ def start_first_stage_execution(trigger, workflow_execution):
         raise ChaliceViewError("Exception: '%s'" % e)
     return workflow_execution
 
-
-def lambda_arn(name):
-
-    REGION = os.environ["AWS_REGION"]
-    ACCOUNT = os.environ["AWS_ACCOUNT"]
-
-    arn = "arn:aws:lambda:"+REGION+":"+ACCOUNT + \
-        ":function:"+APP_NAME+"-"+API_STAGE+"-"+name
-
-    return arn
-
 # @app.on_sqs_message(queue='Analysis', batch_size=1)
-
-@app.route('/workflow/{workflowId}')
-def get_workflow_by_id():
-    response = {}
-    return response
-
-
-@app.route('/workflow')
-def get_workflow():
-    response = {}
-    return response
 
 @app.route('/workflow/execution/nextstage', cors=True, methods=['POST'])
 def execute_next_stage():
-    
+
     stage = app.current_request.json_body
-    print(stage)
+    logger.info(stage)
     stage = execute_stage(stage)
 
-    return stage  
+    return stage
+
 
 @app.lambda_function()
-def test_execute_stage_lambda(event, context):
-    
+def execute_stage_lambda(event, context):
+
     try:
-        print("EVENT")
-        print(json.dumps(event))
+        logger.info("EVENT")
+        logger.info(json.dumps(event))
 
         for record in event["Records"]:
             message = json.loads(record["body"])
-            print(message)
+            logger.info(message)
 
         stage = execute_stage(message)
-    
+
     except Exception as e:
-        #stage = complete_stage_execution(
+        # stage = complete_stage_execution(
         #        "workflow", STAGE_STATUS_ERROR, outputs, workflow_execution_id)
         #stage["exception"] = str(e)
         logger.info("Exception {}".format(e))
@@ -620,129 +860,41 @@ def execute_stage(input_stage):
         workflow_execution_id = input_stage["workflow_execution_id"]
 
         stage = get_stage_for_execution("workflow", workflow_execution_id)
-        stage["workflow_execution_id"] = workflow_execution_id 
+        stage["workflow_execution_id"] = workflow_execution_id
+
+        ## FIXME - temporary - reverse the opeator name and configuration key to make our demo work
+        if "configuration" in stage:
+            for k, v in stage["configuration"].items():
+                stage[k]= {}
+                stage[k]["configuration"] = v
 
         # FIXME check for duplicate SQS messages - SQS messages have AT LEAST ONCE delivery semantics
         # we only want to process an operation once since it could be expensive.
         # State machine will give error when executing same stage with same execution id, maybe use this?:
         # An error occurred (ExecutionAlreadyExists) when calling the StartExecution operation: Execution Already Exists: 'arn:aws:states:us-east-1:526662735483:execution:media-analysis-preprocess-state-machine-1:1c2b2471-a451-49b5-a6f7-12618b955d74
-        #    
-        
-        print(stage)
-        if stage["name"] == "Preprocess":
-            sfn_input = map_preprocess_sfn_input(stage)
-        elif stage["name"] == "Analysis":
-            sfn_input = map_analysis_sfn_input(stage)
-        
-        print(sfn_input)
+        #
+
+        logger.info(stage)
         response = SFN_CLIENT.start_execution(
-            stateMachineArn=stage["StateMachine"],
+            stateMachineArn=stage["stateMachineArn"],
             name=stage["name"]+workflow_execution_id,
-            input=json.dumps(sfn_input)
+            input=json.dumps(stage)
         )
 
         stage["stepFunctionExecutionArn"] = response['executionArn']
 
-        print("REGISTER STEP FUNCTION ARN WITH CONTROL PLANE")
+        logger.info("REGISTER STEP FUNCTION ARN WITH CONTROL PLANE")
         stage = start_stage_execution(
             "workflow", stage["stepFunctionExecutionArn"], workflow_execution_id)
 
     except Exception as e:
-        #stage = complete_stage_execution(
+        # stage = complete_stage_execution(
         #        "workflow", STAGE_STATUS_ERROR, outputs, workflow_execution_id)
         #stage["exception"] = str(e)
         logger.info("Exception {}".format(e))
         raise ChaliceViewError("Exception: '%s'" % e)
 
     return stage
-
-# FIXME: Temporary to map stage structure to step function input structure
-def map_analysis_sfn_input(stage):
-    sfn_input = {
-        "file_type": "mp4",
-        "eventSource": "media-analysis",
-        "configuration": {
-            "Video-Label": "enabled",
-            "Video-Celeb": "disabled",
-            "Video-Face": "disabled",
-            "Video-Face-Match": "disabled",
-            "Video-Person": "disabled"
-        }
-    }
-
-    sfn_input["outputs"] = {}
-    sfn_input["key"] = stage["input"]["media"]["video"]["s3key"]
-    sfn_input["bucket"] = stage["input"]["media"]["video"]["s3bucket"]
-    sfn_input["status"] = stage["status"]
-    sfn_input["workflow_execution_id"] = stage["workflow_execution_id"]
-
-    return sfn_input
-
-# FIXME: Temporary map preprocess stage output to stage expected output
-def map_analysis_sfn_output(sfn_output):
-    stage_output = {
-        "media":{
-            "audio": {
-            }
-        },
-        "metadata": {}
-    }
-
-    return stage_output
-
-# FIXME: Temporary to map stage structure to step function input structure
-def map_preprocess_sfn_input(stage):
-    sfn_input = {
-        "file_type": "mp4",
-        "eventSource": "media-analysis",
-        "stage": {
-            "stage": "preprocess"
-        },
-        "lambda": {
-            "service_name": "media_convert",
-            "function_name": "start_media_convert"
-        }
-    }
-
-    sfn_input["outputs"] = {}
-    sfn_input["key"] = stage["input"]["media"]["video"]["s3key"]
-    sfn_input["bucket"] = stage["input"]["media"]["video"]["s3bucket"]
-    sfn_input["status"] = stage["status"]
-    sfn_input["workflow_execution_id"] = stage["workflow_execution_id"]
-
-    return sfn_input
-
-# FIXME: Temporary map preprocess stage output to stage expected output
-def map_preprocess_sfn_output(sfn_output):
-    stage_output = {
-        "media":{
-            "audio": {
-            }
-        },
-        "metadata": {}
-    }
-
-    stage_output["media"]["audio"]["s3key"] = sfn_output["key"]
-    #stage_output["media"]["audio"]["s3bucket"] = sfn_output["s3bucket"]
-    stage_output["media"]["audio"]["destination"] = sfn_output["destination"]
-    stage_output["media"]["audio"]["file_type"] = sfn_output["file_type"]
-
-    return stage_output
-
-def lambda_arn(name):
-
-    REGION = os.environ["AWS_REGION"]
-    ACCOUNT = os.environ["AWS_ACCOUNT"]
-
-    arn = "arn:aws:lambda:"+REGION+":"+ACCOUNT + \
-        ":function:"+APP_NAME+"-"+API_STAGE+"-"+name
-
-    return arn
-
-
-@app.lambda_function()
-def get_stage_for_execution_lambda(event, context):
-    return get_stage_for_execution("lambda", event["workflow_execution_id"])
 
 
 def get_stage_for_execution(trigger, workflow_execution_id):
@@ -763,7 +915,7 @@ def get_stage_for_execution(trigger, workflow_execution_id):
             raise ChaliceViewError(
                 "Exception: workflow execution id '%s' not found" % workflow_execution_id)
 
-        #if (workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]] != )
+        # if (workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]] != )
         stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
         stage['name'] = workflow_execution["current_stage"]
         stage["workflow_execution_id"] = workflow_execution_id
@@ -775,11 +927,6 @@ def get_stage_for_execution(trigger, workflow_execution_id):
         raise ChaliceViewError("Exception: '%s'" % e)
 
     return stage
-
-
-@app.lambda_function()
-def start_stage_execution_lambda(event, context):
-    return start_stage_execution("lambda", event["step_function_execution_arn"], event["workflow_execution_id"])
 
 
 def start_stage_execution(trigger, step_function_execution_arn, workflow_execution_id):
@@ -804,6 +951,8 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
         stage['name'] = workflow_execution["current_stage"]
         stage['status'] = STAGE_STATUS_EXECUTING
         stage['step_function_execution_arn'] = step_function_execution_arn
+        if "metadata" not in stage:
+            stage["metadata"] = {}
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
                                                  ] = stage
@@ -819,144 +968,99 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
     return stage
 
 
-@app.lambda_function()
-def complete_stage_execution_lambda(event, context):
-    return complete_stage_execution("lambda", event["status"], event["outputs"], event["workflow_execution_id"])
+@app.route('/workflow/execution', cors=True, methods=['PUT'])
+def update_workflow_execution():
+    stage = {"message":"UPDATE WORKFLOW EXECUTION NOT IMPLEMENTED"}
+    return stage
 
 
-def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
-    execution_table_name = WORKFLOW_EXECUTION_TABLE_NAME
+@app.route('/workflow/execution', cors=True, methods=['GET'])
+def list_workflow_executions():
+    """ List all workflow executions
 
-    try:
+    Returns:
+        A list of workflow executions.
 
-        
-        execution_table = DYNAMO_RESOURCE.Table(execution_table_name)
-        # lookup the workflow
-        response = execution_table.get_item(
-            Key={
-                'id': workflow_execution_id
-            })
-        #
-        #  lookup workflow defintiion we need to execute
-        if "Item" in response:
-            workflow_execution = response["Item"]
-        else:
-            workflow_execution = None
-            raise ChaliceViewError(
-                "Exception: workflow execution id '%s' not found" % workflow_execution_id)
+    Raises:
+        200: All workflow executions returned sucessfully.
+        500: Internal server error 
+    """
 
-        stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
-        stage['name'] = workflow_execution["current_stage"]
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
 
-        print("STAGE NAME")
-        print(stage['name'])
+    response = table.scan()
+    workflow_executions = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        workflow_executions.extend(response['Items'])
 
-        if stage["name"] == "Preprocess":
-            print(json.dumps(outputs))
-            stage_outputs = map_preprocess_sfn_output(outputs)
-            print("MAPPED OUTPUTS")
-            print(json.dumps(stage_outputs))
-        elif stage["name"] == "Analysis":
-            print(json.dumps(outputs))
-            stage_outputs = map_analysis_sfn_output(outputs)
-            print("MAPPED OUTPUTS")
-            print(json.dumps(stage_outputs))
-
-        workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
-                                                 ]["status"] = status
+    return workflow_executions
 
 
-        print(workflow_execution["workflow"]["Stages"]
-              [workflow_execution["current_stage"]])
+@app.route('/workflow/execution/{id}', cors=True, methods=['GET'])
+def get_workflow_execution_by_id(id):
+    """ Get a workflow executions by id
 
-        workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
-                                                 ]["outputs"] = stage_outputs
+    Returns:
+        A dictionary contianing the workflow execution.
 
-        print(json.dumps(stage_outputs))
+    Raises:
+        200: All workflow executions returned sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
+    workflow_execution = None
+    response = table.get_item(
+        Key={
+            'id': id
+        })
 
-        # update workflow globals
-        if "media" in stage_outputs:
-            for mediaType in stage_outputs["media"].keys():
-                # replace media with trasformed or created media from this stage
-                print(mediaType)
-                workflow_execution['globals']["media"][mediaType] = stage_outputs["media"][mediaType]
-
-        if "metadata" not in workflow_execution['globals']:
-            workflow_execution['globals']["metadata"] = {}
-
-        if "metadata" in stage_outputs:
-            for key in stage_outputs["metadata"].keys():
-                print(key)
-                workflow_execution['globals']["metadata"][key] = stage_outputs["metadata"][key]
-
-        if status == STAGE_STATUS_COMPLETE:
-            workflow_execution = start_next_stage_execution(
-                "workflow", workflow_execution)
-
-        # Save the workflow status
-        execution_table.put_item(Item=workflow_execution)
-
-    except Exception as e:
-
-        stage = None
-        logger.info("Exception {}".format(e))
-        raise ChaliceViewError("Exception: '%s'" % e)
+    if "Item" in response:
+        workflow_execution = response["Item"]
+    else:
+        raise NotFoundError(
+            "Exception: workflow execution '%s' not found" % id)
 
     return workflow_execution
 
+@app.route('/workflow/execution/{id}', cors=True, methods=['DELETE'])
+def delete_workflow_execution(id):
+    """ Delete a workflow executions
 
-def start_next_stage_execution(trigger, workflow_execution):
+    Returns:  
 
-    try:
-        print("START NEXT STAGE")
+    Raises:
+        200: Workflow execution deleted sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
 
-        print(workflow_execution)
-        current_stage = workflow_execution["current_stage"]
+    try: 
+        workflow_execution = None
+        response = table.get_item(
+            Key={
+                'id': id
+            })
+        
+        if "Item" in response:
+            workflow_execution = response["Item"]
+        else:
+            raise NotFoundError(
+                "Exception: workflow execution '%s' not found" % id)
 
-        if "End" in workflow_execution["workflow"]["Stages"][current_stage] and workflow_execution["workflow"]["Stages"][current_stage]["End"] == True:
-
-            workflow_execution["current_stage"] = "End"
-            workflow_execution["status"] = WORKFLOW_STATUS_COMPLETE
-
-        elif "Next" in workflow_execution["workflow"]["Stages"][current_stage]:
-            current_stage = workflow_execution["current_stage"] = workflow_execution[
-                "workflow"]["Stages"][current_stage]["Next"]
-
-            workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
-            #workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
-            #    time.time())
-            workflow_execution["workflow"]["Stages"][current_stage]["status"] = STAGE_STATUS_STARTED
-
-            try:
-                logger.info("Starting next stage for workflow_execution_id {}:")
-                logger.info(json.dumps(
-                    workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]))
-
-                workitem = {
-                    "workflow_execution_id": workflow_execution["id"],
-                    "workitem": {
-                        "stageName": current_stage, 
-                        "stage": workflow_execution["workflow"]["Stages"][current_stage]
-                    }
-                }
-                
-                print("QUEUE workitem:")
-                print(json.dumps(workitem))
-                response = SQS_CLIENT.send_message(
-                    QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
-                    MessageBody=json.dumps(workitem)
-                )
-            except Exception as e:
-
-                workflow_execution["status"] = WORKFLOW_STATUS_ERROR
-                logger.info("Exception {}".format(e))
-                raise ChaliceViewError(
-                    "Exception: unable to queue work item '%s'" % e)
-
+        response = table.delete_item(
+            Key={
+                'id': id
+            })      
+    
     except Exception as e:
-        workflow_execution["status"] = WORKFLOW_STATUS_ERROR
+
+        workflow_execution = None
         logger.info("Exception {}".format(e))
         raise ChaliceViewError("Exception: '%s'" % e)
+    
     return workflow_execution
 
 

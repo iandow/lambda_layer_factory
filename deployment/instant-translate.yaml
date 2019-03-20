@@ -1,0 +1,656 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  SourceBucket:
+    Type: "String"
+    Description: "Bucket that contains the source code"
+
+  startMediaConvertCode:
+    Type: "String"
+    Description: "S3 Key of the start mediaconvert code"
+    Default: "startMediaConvert.zip"
+  checkMediaConvertCode:
+    Type: "String"
+    Description: "S3 Key of the check mediaconvert code"
+    Default: "getMediaConvert.zip"
+
+  startTranscribeCode:
+    Type: "String"
+    Description: "S3 Key of the start transcribe code"
+    Default: "startTranscribe.zip"
+  checkTranscribeCode:
+    Type: "String"
+    Default: "checkTranscribe.zip"
+    Description: "S3 Key of the check transcribe code"
+  resultTranscribeCode:
+    Type: "String"
+    Description: "S3 Key of the result transcribe code"
+    Default: "resultTranscribe.zip"
+  putS3TranscribeCode:
+    Type: "String"
+    Description: "S3 Key of the putS3 transcribe code"
+    Default: "putS3Transcribe.zip"
+
+  startTranslateCode:
+    Type: "String"
+    Description: "S3 Key of the start translate code"
+    Default: "startTranslate.zip"
+  putS3TranslateCode:
+    Type: "String"
+    Description: "S3 Key of the putS3 translate code"
+    Default: "putS3Translate.zip"
+
+  startPollyCode:
+    Type: "String"
+    Description: "S3 Key of the start polly code"
+    Default: "startPolly.zip"
+  checkPollyCode:
+    Type: "String"
+    Description: "S3 Key of the check polly code"
+    Default: "checkPolly.zip"
+
+Resources:
+# S3 Buckets
+  skyDataStore:
+    Type: "AWS::S3::Bucket"
+
+# IAM Roles:
+
+  mediaConvertRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+       AssumeRolePolicyDocument:
+         Version: "2012-10-17"
+         Statement:
+           -
+             Effect: "Allow"
+             Principal:
+               Service:
+                 - "mediaconvert.amazonaws.com"
+             Action:
+               - "sts:AssumeRole"
+       Policies:
+         -
+           PolicyName: "skyMediaconvertAllowS3"
+           PolicyDocument:
+             Version: "2012-10-17"
+             Statement:
+               -
+                 Effect: "Allow"
+                 Action:
+                   - "s3:GetObject"
+                   - "s3:PutObject"
+                 Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+  preprocessRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        -
+          PolicyName: "skyTranscribeAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+              - Action: "mediaconvert:*"
+                Resource: "*"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+                Effect: "Allow"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*:*'
+                Effect: "Allow"
+              - Action:
+                  - "iam:PassRole"
+                Resource: !GetAtt "mediaConvertRole.Arn"
+                Effect: "Allow"
+
+  transcribeRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        -
+          PolicyName: "skyTranscribeAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+              - Action: "transcribe:*"
+                Resource: "*"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+                Effect: "Allow"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*:*'
+                Effect: Allow
+
+  translateRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: "skyTranslateAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+              - Action: "translate:*"
+                Resource: "*"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+                Effect: "Allow"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*:*'
+                Effect: Allow
+
+  pollyRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: "skyPollyAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+              - Action: "polly:*"
+                Resource: "*"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+                Effect: "Allow"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*:*'
+                Effect: Allow
+
+  stepFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "states.amazonaws.com"
+      Policies:
+        -
+          PolicyName: "skySFNLambdaAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+
+# Lambda Functions:
+
+  # Preprocess Lambdas
+
+  skyStartMediaConvertFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "startMediaConvert.handler"
+      Role: !GetAtt "preprocessRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "startMediaConvertCode"
+      Runtime: "nodejs8.10"
+      Environment:
+        Variables:
+          mediaconvertRole: !GetAtt "mediaConvertRole.Arn"
+
+  skyCheckMediaConvertFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "getMediaConvert.handler"
+      Role: !GetAtt "preprocessRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "checkMediaConvertCode"
+      Runtime: "nodejs8.10"
+
+  # Transcribe Lambdas
+
+  skyStartTranscribeFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-transcribe-start.handler"
+      Role: !GetAtt "transcribeRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "startTranscribeCode"
+      Runtime: "nodejs8.10"
+
+  skyCheckTranscribeFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-transcribe-checkstatus.handler"
+      Role: !GetAtt "transcribeRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "checkTranscribeCode"
+      Runtime: "nodejs8.10"
+
+  skyResultTranscribeFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-transcribe-result.handler"
+      Role: !GetAtt "transcribeRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "resultTranscribeCode"
+      Runtime: "nodejs8.10"
+
+  skyPutS3TranscribeFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-transcribe-put-s3.lambda_handler"
+      Role: !GetAtt "transcribeRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "putS3TranscribeCode"
+      Runtime: "python3.7"
+
+  # Translate Lambdas
+
+  skyTranslateFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-translate.lambda_handler"
+      Role: !GetAtt "translateRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "startTranslateCode"
+      Runtime: "python3.7"
+
+  skyPutS3TranslateFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-translate-put-s3.lambda_handler"
+      Role: !GetAtt "translateRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "putS3TranslateCode"
+      Runtime: "python3.7"
+
+  # Polly Lambdas
+
+  skyStartPollyFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-start-polly.lambda_handler"
+      Role: !GetAtt "pollyRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "startPollyCode"
+      Runtime: "python3.7"
+
+  skyCheckPollyFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "mas-check-polly.lambda_handler"
+      Role: !GetAtt "pollyRole.Arn"
+      Code:
+        S3Bucket: !Ref "SourceBucket"
+        S3Key: !Ref "checkPollyCode"
+      Runtime: "python3.7"
+
+# Step Functions
+
+  preprocessStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "skyPreprocessStateMachine"
+      DefinitionString: !Sub |-
+        {
+          "StartAt": "Is Type?",
+          "States": {
+            "Is Type?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.mediaConvert.configuration.mediaType",
+                "StringEquals": "video",
+                "Next": "Media Convert Enabled?"
+              }],
+              "Default": "Media Convert Not Started"
+            },
+            "Media Convert Enabled?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.mediaConvert.configuration.enabled",
+                "BooleanEquals": true,
+                "Next": "Start MediaConvert"
+              }],
+              "Default": "Media Convert Not Started"
+            },
+            "Media Convert Not Started": {
+              "Type": "Succeed"
+            },
+            "Start MediaConvert": {
+              "Type": "Task",
+              "Resource": "${skyStartMediaConvertFunction.Arn}",
+              "InputPath": "$",
+              "ResultPath": "$",
+              "Next": "Did MediaConvert Start"
+            },
+            "Did MediaConvert Start": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.mediaConvert.status",
+                "StringEquals": "IN_PROGRESS",
+                "Next": "MediaConvert Wait"
+              }],
+              "Default": "Media Convert Failed"
+            },
+            "MediaConvert Wait": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "Get MediaConvert Status"
+            },
+            "Get MediaConvert Status": {
+              "Type": "Task",
+              "Resource": "${skyCheckMediaConvertFunction.Arn}",
+              "InputPath": "$",
+              "ResultPath": "$",
+              "Next": "Did MediaConvert Complete",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "Media Convert Failed"
+              }]
+            },
+            "Did MediaConvert Complete": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.mediaConvert.status",
+                  "StringEquals": "FAILED",
+                  "Next": "Media Convert Failed"
+                },
+                {
+                  "Variable": "$.mediaConvert.status",
+                  "StringEquals": "COMPLETE",
+                  "Next": "Media Convert Succeeded"
+                }
+              ],
+              "Default": "MediaConvert Wait"
+            },
+            "Media Convert Failed": {
+              "Type": "Fail"
+            },
+            "Media Convert Succeeded": {
+              "Type": "Pass",
+              "Result": {
+                "status": "complete"
+              },
+              "ResultPath": "$.stageStatus",
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt "stepFunctionRole.Arn"
+
+  transcribeStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "skyTranscribeStateMachine"
+      DefinitionString: !Sub |-
+        {
+          "StartAt": "Is Type?",
+          "States": {
+            "Is Type?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.transcribe.configuration.mediaType",
+                "StringEquals": "audio",
+                "Next": "Transcribe Enabled?"
+              }],
+              "Default": "Transcribe Not Started"
+            },
+
+            "Transcribe Enabled?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.transcribe.configuration.enabled",
+                "BooleanEquals": true,
+                "Next": "Start Transcribe"
+              }],
+              "Default": "Transcribe Not Started"
+            },
+
+            "Transcribe Not Started": {
+              "Type": "Succeed"
+            },
+
+            "Start Transcribe": {
+              "Type": "Task",
+              "Resource": "${skyStartTranscribeFunction.Arn}",
+              "Next": "Transcribe Wait",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "Transcribe Failed"
+              }]
+            },
+            "Transcribe Wait": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "Get Transcribe Status"
+            },
+            "Get Transcribe Status": {
+              "Type": "Task",
+              "Resource": "${skyCheckTranscribeFunction.Arn}",
+              "Next": "Transcribe Completed?",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "Transcribe Failed"
+              }]
+            },
+            "Transcribe Completed?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.transcribe.status",
+                "StringEquals": "Complete",
+                "Next": "Transcribe Result"
+              }],
+              "Default": "Transcribe Wait"
+            },
+            "Transcribe Result": {
+              "Type": "Task",
+              "Resource": "${skyResultTranscribeFunction.Arn}",
+              "Next": "Send transcription to S3"
+            },
+            "Send transcription to S3": {
+              "Type": "Task",
+              "Resource": "${skyPutS3TranscribeFunction.Arn}",
+              "End": true
+            },
+            "Transcribe Failed": {
+              "Type": "Fail"
+            }
+          }
+        }
+      RoleArn: !GetAtt "stepFunctionRole.Arn"
+
+  translateStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "skyTranslateStateMachine"
+      DefinitionString: !Sub |-
+        {
+          "StartAt": "Is Type?",
+          "States": {
+            "Is Type?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.translate.configuration.mediaType",
+                "StringEquals": "text",
+                "Next": "translate Enabled?"
+              }],
+              "Default": "translate Not Started"
+            },
+
+            "translate Enabled?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.translate.configuration.enabled",
+                "BooleanEquals": true,
+                "Next": "Start translate"
+              }],
+              "Default": "translate Not Started"
+            },
+
+            "translate Not Started": {
+              "Type": "Succeed"
+            },
+
+            "Start translate": {
+              "Type": "Task",
+              "Resource": "${skyTranslateFunction.Arn}",
+              "ResultPath": "$.translate.output",
+              "Next": "Send translation to S3",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "translate Failed"
+              }]
+            },
+            "Send translation to S3": {
+              "Type": "Task",
+              "Resource": "${skyPutS3TranslateFunction.Arn}",
+              "End": true
+            },
+            "translate Failed": {
+              "Type": "Fail"
+            }
+          }
+        }
+      RoleArn: !GetAtt "stepFunctionRole.Arn"
+
+  pollyStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "skyPollyStateMachine"
+      DefinitionString: !Sub |-
+        {
+          "StartAt": "Is Type?",
+          "States": {
+            "Is Type?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.polly.configuration.mediaType",
+                "StringEquals": "text",
+                "Next": "polly Enabled?"
+              }],
+              "Default": "polly Not Started"
+            },
+
+            "polly Enabled?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.polly.configuration.enabled",
+                "BooleanEquals": true,
+                "Next": "Start polly"
+              }],
+              "Default": "polly Not Started"
+            },
+
+            "polly Not Started": {
+              "Type": "Succeed"
+            },
+
+            "Start polly": {
+              "Type": "Task",
+              "Resource": "${skyStartPollyFunction.Arn}",
+              "Next": "polly Wait",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "polly Failed"
+              }]
+            },
+            "polly Wait": {
+              "Type": "Wait",
+              "Seconds": 10,
+              "Next": "Get polly Status"
+            },
+            "Get polly Status": {
+              "Type": "Task",
+              "Resource": "${skyCheckPollyFunction.Arn}",
+              "Next": "polly Completed?",
+              "Catch": [{
+                "ErrorEquals": [ "Error" ],
+                "Next": "polly Failed"
+              }]
+            },
+            "polly Completed?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.polly.status",
+                "StringEquals": "Complete",
+                "Next": "polly Result"
+              }],
+              "Default": "polly Wait"
+            },
+            "polly Result": {
+              "Type": "Succeed"
+            },
+            "polly Failed": {
+              "Type": "Fail"
+            }
+          }
+        }
+      RoleArn: !GetAtt "stepFunctionRole.Arn"

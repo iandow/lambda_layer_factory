@@ -26,7 +26,7 @@ cwd = os.getcwd()
 
 def main():
     print(cwd)
-    input_file_path = cwd+'/dist/workflowapi.yaml'
+    input_file_path = cwd+'/dist/workflowapi_sam.json'
     output_file_path = cwd+'/dist/workflowapi.yaml'
 
     print(input_file_path)

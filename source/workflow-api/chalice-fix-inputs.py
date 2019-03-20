@@ -27,6 +27,14 @@ def fix_chalice_sam_template():
                 "Type": "String",
                 "Description": "Queue used to post stage executions for processing" 
                 },
+        "OperationTableName": {
+                "Type": "String",
+                "Description": "Table used to store operations" 
+                },
+        "CompleteStageLambdaArn": {
+                "Type": "String",
+                "Description": "Lambda that completes execution of a stage" 
+                },
         }
 
     environment = {
@@ -42,6 +50,12 @@ def fix_chalice_sam_template():
                 },
                 "STAGE_EXECUTION_QUEUE_URL": {
                         "Ref":"StageExecutionQueueUrl"
+                },
+                "OPERATION_TABLE_NAME": {
+                        "Ref":"OperationTableName"
+                },
+                "COMPLETE_STAGE_LAMBDA_ARN": {
+                        "Ref":"CompleteStageLambdaArn"
                 }
             }
         }

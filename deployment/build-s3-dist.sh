@@ -94,7 +94,35 @@ echo "cp $template_dir/media-analysis-preprocess-state-machine-stack.yaml $dist_
 cp "$template_dir/media-analysis-preprocess-state-machine-stack.yaml" "$dist_dir/media-analysis-preprocess-state-machine-stack.template"
 
 echo "------------------------------------------------------------------------------"
-echo "Workflow API Stack"
+echo "Stage Completion Function"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/workflow" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+pushd package
+echo "create lambda package"
+pip install -r ../requirements.txt --target .
+zip -r9 ../dist/workflow.zip . 
+popd
+zip -g dist/workflow.zip *.py
+
+cp "./dist/workflow.zip" "$dist_dir/workflow.zip"
+
+
+echo "------------------------------------------------------------------------------"
+echo "Workflow API Function"
 echo "------------------------------------------------------------------------------"
 echo "Building Workflow Lambda function"
 cd "$source_dir/workflow-api" || exit
@@ -107,8 +135,9 @@ rm ./dist/*
 
 chalice package dist
 ./chalice-fix-inputs.py
-aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/workflowapi.yaml" --profile default
+aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/workflowapi_sam.yaml" --profile default
 ./sam-translate.py
+
 
 echo "cp ./dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml"
 cp dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml
@@ -165,21 +194,6 @@ npm install
 npm run build
 npm run zip
 cp "./dist/media-analysis-helper.zip" "$dist_dir/media-analysis-helper.zip"
-
-echo "------------------------------------------------------------------------------"
-echo "Workflow Function"
-echo "------------------------------------------------------------------------------"
-echo "Building Workflow Lambda function"
-cd "$source_dir/workflow" || exit
-
-mkdir dist
-rm ./dist/*
-zip -g dist/media-analysis-workflow.zip workflow.py
-
-cp "./dist/media-analysis-workflow.zip" "$dist_dir/media-analysis-workflow.zip"
-
-
-
 
 
 echo "------------------------------------------------------------------------------"

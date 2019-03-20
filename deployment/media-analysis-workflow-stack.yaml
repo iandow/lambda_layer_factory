@@ -161,18 +161,48 @@ Resources:
             - StageExecutionDeadLetterQueue
             - Arn
         maxReceiveCount: 1 # Don't retry if stage times out
-  
+
+  # Services - Lambda
+
+  CompleteStageLambda:
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-complete-workflow"
+      Environment:
+        Variables:
+          StageExecutionQueueUrl: !Ref StageExecutionQueue
+          StageTableName: !Ref StageTable
+          OperationTableName: !Ref OperationTable
+          WorkflowExecutionTableName: !Ref WorkflowExecutionTable
+          WorkflowTableName: !Ref WorkflowTable
+      Handler: app.complete_stage_execution_lambda
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "workflow.zip"]]
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+        - StageExecutionRole
+        - Arn
+      Runtime: python3.6
+      Timeout: 900
+    Type: AWS::Lambda::Function           
+
+  # Workflow creation and execution API
+
   MediaAnalysisWorkflowApiStack:
         Type: "AWS::CloudFormation::Stack"
         Properties:
             TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-api-stack.template"]]
             Parameters:
                 StageExecutionQueueUrl: !Ref StageExecutionQueue
+                OperationTableName: !Ref OperationTable
                 StageTableName: !Ref StageTable
                 WorkflowExecutionTableName: !Ref WorkflowExecutionTable
                 WorkflowTableName: !Ref WorkflowTable
-      
-
+                CompleteStageLambdaArn: 
+                    Fn::GetAtt:
+                    - CompleteStageLambda
+                    - Arn 
 
 Outputs:
   WorkflowTable:

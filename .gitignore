@@ -1,4 +1,5 @@
 dist/
+package/
 node_modules/
 source/web_site/build/
 
@@ -7,3 +8,5 @@ package-lock.json
 
 scratch/
 deployment/build.sh
+
+old/
