@@ -4,50 +4,51 @@ Parameters:
   SourceBucket:
     Type: "String"
     Description: "Bucket that contains the source code"
+    Default: %%BUCKET_NAME%%
 
   startMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the start mediaconvert code"
-    Default: "startMediaConvert.zip"
+    Default: "code/startMediaConvert.zip"
   checkMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the check mediaconvert code"
-    Default: "getMediaConvert.zip"
+    Default: "code/getMediaConvert.zip"
 
   startTranscribeCode:
     Type: "String"
     Description: "S3 Key of the start transcribe code"
-    Default: "startTranscribe.zip"
+    Default: "code/startTranscribe.zip"
   checkTranscribeCode:
     Type: "String"
-    Default: "checkTranscribe.zip"
+    Default: "code/checkTranscribe.zip"
     Description: "S3 Key of the check transcribe code"
   resultTranscribeCode:
     Type: "String"
     Description: "S3 Key of the result transcribe code"
-    Default: "resultTranscribe.zip"
+    Default: "code/resultTranscribe.zip"
   putS3TranscribeCode:
     Type: "String"
     Description: "S3 Key of the putS3 transcribe code"
-    Default: "putS3Transcribe.zip"
+    Default: "code/putS3Transcribe.zip"
 
   startTranslateCode:
     Type: "String"
     Description: "S3 Key of the start translate code"
-    Default: "startTranslate.zip"
+    Default: "code/startTranslate.zip"
   putS3TranslateCode:
     Type: "String"
     Description: "S3 Key of the putS3 translate code"
-    Default: "putS3Translate.zip"
+    Default: "code/putS3Translate.zip"
 
   startPollyCode:
     Type: "String"
     Description: "S3 Key of the start polly code"
-    Default: "startPolly.zip"
+    Default: "code/startPolly.zip"
   checkPollyCode:
     Type: "String"
     Description: "S3 Key of the check polly code"
-    Default: "checkPolly.zip"
+    Default: "code/checkPolly.zip"
 
 Resources:
 # S3 Buckets
