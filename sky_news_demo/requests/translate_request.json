@@ -1,0 +1,26 @@
+{
+
+        "workflowExecutionId": "",
+        "configuration" : {
+            "translate": {
+                "mediaType": "text",
+                "enabled": true,
+                "SourceLanguageCode": "en",
+                "TargetLanguageCode": "ru"
+            }
+        },
+        "input": {
+            "media":
+            {
+                "text":
+                {
+                    "s3bucket": "sky-demo-skydatastore-19ysy9fvh87uf",
+                    "s3key": "metadata/transcription.txt",
+                    "fileType": "txt"
+                }
+            }
+        },
+        "output": "",
+        "status": "Not Started"
+}
+
