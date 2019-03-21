@@ -81,6 +81,22 @@ replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-workflow-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-workflow-stack.template"
 
+# Copy test operations template to dist directory and update bucket name
+echo "Replacing solution version in template with '$2'"
+replace="s/%%VERSION%%/$2/g"
+echo "cp $template_dir/media-analysis-test-operations-stack.yaml $dist_dir/media-analysis-test-operations-stack.template"
+cp "$template_dir/media-analysis-test-operations-stack.yaml" "$dist_dir/media-analysis-test-operations-stack.template"
+
+echo "Updating code source bucket in template with '$1'"
+replace="s/%%BUCKET_NAME%%/$1/g"
+echo "sed -i '' -e $replace $dist_dir/media-analysis-test-operations-stack.template"
+sed -i '' -e $replace "$dist_dir/media-analysis-test-operations-stack.template"
+
+echo "Replacing solution version in template with '$2'"
+replace="s/%%VERSION%%/$2/g"
+echo "sed -i '' -e $replace $dist_dir/media-analysis-test-operations-stack.template"
+sed -i '' -e $replace "$dist_dir/media-analysis-test-operations-stack.template"
+
 # Copy storage template to dist directory and update bucket name
 echo "cp $template_dir/media-analysis-storage-stack.yaml $dist_dir/media-analysis-storage-stack.template"
 cp "$template_dir/media-analysis-storage-stack.yaml" "$dist_dir/media-analysis-storage-stack.template"
@@ -144,6 +160,33 @@ cp dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml
 
 echo "cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template"
 cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template
+
+echo "------------------------------------------------------------------------------"
+echo "Test Operations"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/operations/test" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+pushd package
+echo "create lambda package"
+pip install -r ../requirements.txt --target .
+zip -r9 ../dist/test_operations.zip . 
+popd
+zip -g dist/test_operations.zip *.py
+
+cp "./dist/test_operations.zip" "$dist_dir/test_operations.zip"
 
 echo "------------------------------------------------------------------------------"
 echo "Analysis Function"

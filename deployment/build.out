@@ -1,0 +1,66 @@
+------------------------------------------------------------------------------
+Rebuild distribution
+------------------------------------------------------------------------------
+rm -rf /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist
+mkdir -p /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist
+------------------------------------------------------------------------------
+CloudFormation Templates
+------------------------------------------------------------------------------
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-deploy.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
+Updating code source bucket in template with 'elementalrodeo99'
+sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
+Replacing solution version in template with 'v2.0.4'
+sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-api-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
+Updating code source bucket in template with 'elementalrodeo99'
+sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
+Replacing solution version in template with 'v2.0.4'
+sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
+Replacing solution version in template with 'v2.0.4'
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
+Updating code source bucket in template with 'elementalrodeo99'
+sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
+Replacing solution version in template with 'v2.0.4'
+sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
+Replacing solution version in template with 'v2.0.4'
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-test-operations-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
+Updating code source bucket in template with 'elementalrodeo99'
+sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
+Replacing solution version in template with 'v2.0.4'
+sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-storage-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-storage-stack.template
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-state-machine-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-state-machine-stack.template
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-preprocess-state-machine-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-preprocess-state-machine-stack.template
+------------------------------------------------------------------------------
+Stage Completion Function
+------------------------------------------------------------------------------
+Building Stage completion function
+create requirements for lambda
+~/gitmas/MediaAnalysisSolution/source/workflow/package ~/gitmas/MediaAnalysisSolution/source/workflow
+create lambda package
+
+zip error: Nothing to do! (try: zip -r9 ../dist/workflow.zip . -i .)
+~/gitmas/MediaAnalysisSolution/source/workflow
+	zip warning: dist/workflow.zip not found or empty
+  adding: app.py (deflated 75%)
+  adding: awsmas.py (deflated 63%)
+------------------------------------------------------------------------------
+Workflow API Function
+------------------------------------------------------------------------------
+Building Workflow Lambda function
+Creating deployment package.
+
+Successfully packaged artifacts and wrote output template to file dist/workflowapi_sam.yaml.
+Execute the following command to deploy the packaged template
+aws cloudformation deploy --template-file /Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi_sam.yaml --stack-name <YOUR STACK NAME>
+/Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api
+/Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi_sam.json
+cp ./dist/workflowapi.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-api-stack.yaml
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-api-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-api-stack.template
+------------------------------------------------------------------------------
+Test Operations
+------------------------------------------------------------------------------
+Building Stage completion function
+create requirements for lambda
+~/gitmas/MediaAnalysisSolution/source/operations/test/package ~/gitmas/MediaAnalysisSolution/source/operations/test
+create lambda package
