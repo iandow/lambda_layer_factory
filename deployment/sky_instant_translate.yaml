@@ -1,54 +1,55 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Parameters:
-  SourceBucket:
-    Type: "String"
-    Description: "Bucket that contains the source code"
-    Default: %%BUCKET_NAME%%
+Mappings:
+    SourceCode:
+        General:
+            S3Bucket: '%%BUCKET_NAME%%'
+            KeyPrefix: "media-analysis-solution/%%VERSION%%/code"
 
+Parameters:
   startMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the start mediaconvert code"
-    Default: "code/startMediaConvert.zip"
+    Default: "startMediaConvert.zip"
   checkMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the check mediaconvert code"
-    Default: "code/getMediaConvert.zip"
+    Default: "getMediaConvert.zip"
 
   startTranscribeCode:
     Type: "String"
     Description: "S3 Key of the start transcribe code"
-    Default: "code/startTranscribe.zip"
+    Default: "startTranscribe.zip"
   checkTranscribeCode:
     Type: "String"
-    Default: "code/checkTranscribe.zip"
+    Default: "checkTranscribe.zip"
     Description: "S3 Key of the check transcribe code"
   resultTranscribeCode:
     Type: "String"
     Description: "S3 Key of the result transcribe code"
-    Default: "code/resultTranscribe.zip"
+    Default: "resultTranscribe.zip"
   putS3TranscribeCode:
     Type: "String"
     Description: "S3 Key of the putS3 transcribe code"
-    Default: "code/putS3Transcribe.zip"
+    Default: "putS3Transcribe.zip"
 
   startTranslateCode:
     Type: "String"
     Description: "S3 Key of the start translate code"
-    Default: "code/startTranslate.zip"
+    Default: "startTranslate.zip"
   putS3TranslateCode:
     Type: "String"
     Description: "S3 Key of the putS3 translate code"
-    Default: "code/putS3Translate.zip"
+    Default: "putS3Translate.zip"
 
   startPollyCode:
     Type: "String"
     Description: "S3 Key of the start polly code"
-    Default: "code/startPolly.zip"
+    Default: "startPolly.zip"
   checkPollyCode:
     Type: "String"
     Description: "S3 Key of the check polly code"
-    Default: "code/checkPolly.zip"
+    Default: "checkPolly.zip"
 
 Resources:
 # S3 Buckets
@@ -250,8 +251,8 @@ Resources:
       Handler: "startMediaConvert.handler"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "startMediaConvertCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startMediaConvertCode"]]
       Runtime: "nodejs8.10"
       Environment:
         Variables:
@@ -263,8 +264,8 @@ Resources:
       Handler: "getMediaConvert.handler"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "checkMediaConvertCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkMediaConvertCode"]]
       Runtime: "nodejs8.10"
 
   # Transcribe Lambdas
@@ -275,8 +276,8 @@ Resources:
       Handler: "mas-transcribe-start.handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "startTranscribeCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startTranscribeCode"]]
       Runtime: "nodejs8.10"
 
   skyCheckTranscribeFunction:
@@ -285,8 +286,8 @@ Resources:
       Handler: "mas-transcribe-checkstatus.handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "checkTranscribeCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkTranscribeCode"]]
       Runtime: "nodejs8.10"
 
   skyResultTranscribeFunction:
@@ -295,8 +296,8 @@ Resources:
       Handler: "mas-transcribe-result.handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "resultTranscribeCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "resultTranscribeCode"]]
       Runtime: "nodejs8.10"
 
   skyPutS3TranscribeFunction:
@@ -305,8 +306,8 @@ Resources:
       Handler: "mas-transcribe-put-s3.lambda_handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "putS3TranscribeCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "putS3TranscribeCode"]]
       Runtime: "python3.7"
 
   # Translate Lambdas
@@ -317,8 +318,8 @@ Resources:
       Handler: "mas-translate.lambda_handler"
       Role: !GetAtt "translateRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "startTranslateCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startTranslateCode"]]
       Runtime: "python3.7"
 
   skyPutS3TranslateFunction:
@@ -327,8 +328,8 @@ Resources:
       Handler: "mas-translate-put-s3.lambda_handler"
       Role: !GetAtt "translateRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "putS3TranslateCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "putS3TranslateCode"]]
       Runtime: "python3.7"
 
   # Polly Lambdas
@@ -339,8 +340,8 @@ Resources:
       Handler: "mas-start-polly.lambda_handler"
       Role: !GetAtt "pollyRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "startPollyCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startPollyCode"]]
       Runtime: "python3.7"
 
   skyCheckPollyFunction:
@@ -349,8 +350,8 @@ Resources:
       Handler: "mas-check-polly.lambda_handler"
       Role: !GetAtt "pollyRole.Arn"
       Code:
-        S3Bucket: !Ref "SourceBucket"
-        S3Key: !Ref "checkPollyCode"
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkPollyCode"]]
       Runtime: "python3.7"
 
 # Step Functions

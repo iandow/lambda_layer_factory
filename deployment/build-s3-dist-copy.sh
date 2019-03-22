@@ -120,6 +120,11 @@ replace="s/%%BUCKET_NAME%%/$bucket/g"
 echo "sed -i '' -e $replace $dist_dir/sky_instant_translate.template"
 sed -i '' -e $replace "$dist_dir/sky_instant_translate.template"
 
+echo "Replacing solution version in template with '$2'"
+replace="s/%%VERSION%%/$2/g"
+echo "sed -i '' -e $replace $dist_dir/sky_instant_translate.template"
+sed -i '' -e $replace "$dist_dir/sky_instant_translate.template"
+
 # Workflow template
 echo "Copying workflow template to dist directory"
 echo "cp $template_dir/media-analysis-workflow-stack.yaml $dist_dir/media-analysis-workflow-stack.template"
@@ -416,13 +421,13 @@ echo "We are copying in your source into the newly created bucket"
 for file in $dist_dir/*.zip
 do
     echo $file
-    aws s3 cp $file s3://$bucket/code/
+    aws s3 cp $file s3://$bucket/media-analysis-solution/$2/code/
 done
 
 for file in $dist_dir/*.template
 do
     echo $file
-    aws s3 cp $file s3://$bucket/cf/
+    aws s3 cp $file s3://$bucket/media-analysis-solution/$2/cf/
 done
 
 
