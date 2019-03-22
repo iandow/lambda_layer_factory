@@ -75,6 +75,7 @@ Resources:
                   - dynamodb:Scan
                 Resource:
                   - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "WorkflowTable"]]
+                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "WorkflowExecutionTable"]]
               -
                 Effect: Allow
                 Action:
@@ -169,11 +170,11 @@ Resources:
       FunctionName: !Sub "${AWS::StackName}-complete-workflow"
       Environment:
         Variables:
-          StageExecutionQueueUrl: !Ref StageExecutionQueue
-          StageTableName: !Ref StageTable
-          OperationTableName: !Ref OperationTable
-          WorkflowExecutionTableName: !Ref WorkflowExecutionTable
-          WorkflowTableName: !Ref WorkflowTable
+          STAGE_EXECUTION_QUEUE_URL: !Ref StageExecutionQueue
+          STAGE_TABLE_NAME: !Ref StageTable
+          OPERATION_TABLE_NAME: !Ref OperationTable
+          WORKFLOW_EXECUTION_TABLE_NAME: !Ref WorkflowExecutionTable
+          WORKFLOW_TABLE_NAME: !Ref WorkflowTable
       Handler: app.complete_stage_execution_lambda
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
@@ -195,6 +196,7 @@ Resources:
             TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]] , !FindInMap ["SourceCode", "General", "KeyPrefix"], "media-analysis-workflow-api-stack.template"]]
             Parameters:
                 StageExecutionQueueUrl: !Ref StageExecutionQueue
+                StageExecutionRole: !Ref StageExecutionRole
                 OperationTableName: !Ref OperationTable
                 StageTableName: !Ref StageTable
                 WorkflowExecutionTableName: !Ref WorkflowExecutionTable

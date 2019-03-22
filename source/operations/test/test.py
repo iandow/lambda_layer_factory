@@ -19,9 +19,9 @@ def video_test_lambda(event, context):
     logger.info(event)
 
     output = {}
-    output["name"] = "video-test"
-    output["media"] = event["media"]
-    output["metadata"] = event["metadata"]
+    output["name"] = "test-operation"
+    output["media"] = event["input"]["media"]
+    output["metadata"] = event["input"]["metadata"]
     output["status"] = "Complete"
 
     return output

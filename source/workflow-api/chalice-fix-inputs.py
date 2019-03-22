@@ -27,6 +27,10 @@ def fix_chalice_sam_template():
                 "Type": "String",
                 "Description": "Queue used to post stage executions for processing" 
                 },
+        "StageExecutionRole": {
+                "Type": "String",
+                "Description": "ARN of the role used to execute a stage state machine" 
+                },
         "OperationTableName": {
                 "Type": "String",
                 "Description": "Table used to store operations" 
@@ -56,6 +60,9 @@ def fix_chalice_sam_template():
                 },
                 "COMPLETE_STAGE_LAMBDA_ARN": {
                         "Ref":"CompleteStageLambdaArn"
+                },
+                "STAGE_EXECUTION_ROLE": {
+                        "Ref":"StageExecutionRole"
                 }
             }
         }

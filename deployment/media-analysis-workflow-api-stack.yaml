@@ -54,6 +54,10 @@
       "Description": "Queue used to post stage executions for processing",
       "Type": "String"
     },
+    "StageExecutionRole": {
+      "Description": "ARN of the role used to execute a stage state machine",
+      "Type": "String"
+    },
     "StageTableName": {
       "Description": "Table used to store stage definitions",
       "Type": "String"
@@ -151,6 +155,7 @@
                     "arn:aws:iam::526662735483:role/mascode-MediaAnalysisFunctionRole-6YDC4OXE1XH3",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN",
+                    "arn:aws:sts::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX",
                     "*"
                   ]
                 }
@@ -226,6 +231,7 @@
                     "arn:aws:iam::526662735483:role/mascode-MediaAnalysisFunctionRole-6YDC4OXE1XH3",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN",
+                    "arn:aws:sts::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX",
                     "*"
                   ]
                 }
@@ -301,6 +307,7 @@
                     "arn:aws:iam::526662735483:role/mascode-MediaAnalysisFunctionRole-6YDC4OXE1XH3",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW",
                     "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN",
+                    "arn:aws:sts::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX",
                     "*"
                   ]
                 }
@@ -318,7 +325,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/5d8a775163851c0303f092cb872ae918"
+          "S3Key": "media-analysis-solution/v2.0.4/7b62309de0ace12b534d589b607ac521"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -340,6 +347,9 @@
             },
             "STAGE_EXECUTION_QUEUE_URL": {
               "Ref": "StageExecutionQueueUrl"
+            },
+            "STAGE_EXECUTION_ROLE": {
+              "Ref": "StageExecutionRole"
             },
             "STAGE_TABLE_NAME": {
               "Ref": "StageTableName"
@@ -369,7 +379,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/5d8a775163851c0303f092cb872ae918"
+          "S3Key": "media-analysis-solution/v2.0.4/7b62309de0ace12b534d589b607ac521"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -391,6 +401,9 @@
             },
             "STAGE_EXECUTION_QUEUE_URL": {
               "Ref": "StageExecutionQueueUrl"
+            },
+            "STAGE_EXECUTION_ROLE": {
+              "Ref": "StageExecutionRole"
             },
             "STAGE_TABLE_NAME": {
               "Ref": "StageTableName"
@@ -420,7 +433,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/5d8a775163851c0303f092cb872ae918"
+          "S3Key": "media-analysis-solution/v2.0.4/7b62309de0ace12b534d589b607ac521"
         },
         "Handler": "app.execute_stage_lambda",
         "MemorySize": 128,
@@ -442,6 +455,9 @@
             },
             "STAGE_EXECUTION_QUEUE_URL": {
               "Ref": "StageExecutionQueueUrl"
+            },
+            "STAGE_EXECUTION_ROLE": {
+              "Ref": "StageExecutionRole"
             },
             "STAGE_TABLE_NAME": {
               "Ref": "StageTableName"
@@ -594,7 +610,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "A workflow is a pipeline of stages that are executed sequentially to transform and \nextract metadata for a set of mediaType objects.  \n\nBody: \n    {\n        \"name\": string,\n        \"StartAt\": string - name of starting stage,\n        \"Stages\": {\n            \"stage-name\": {\n                \"Next\": \"string - name of next stage\"\n            },\n            ...,\n            \"stage-name\": {\n                \"End\": true\n            }\n        }\n    }\n\n\nReturns:\n    A dict mapping keys to the corresponding workflow created including \n    the ARN of the state machines for each stage. \n\n    {\n        \"name\": string,\n        \"StartAt\": \"Preprocess\",\n        \"Stages\": {\n            \"stage-name\": {\n                \"Resource\": \"https://sqs.us-east-1.amazonaws.com/526662735483/StageExecution\",\n                \"StateMachine\": ARN,\n                \"Next\": \"Analysis\"\n            },\n            \"Analysis\": {\n                \"Type\": \"NestedQueue\",\n                \"Resource\": ARN,\n                \"StateMachine\": ARN,\n                \"End\": true\n            }\n        }\n    }\n\nRaises:\n    200: The workflow was created successfully.\n    400: Bad Request - one of the input stages was not found or was invalid\n    500: Internal server error ",
+                "description": "A workflow is a pipeline of stages that are executed sequentially to transform and \nextract metadata for a set of mediaType objects.  Each stage must contain either a \n\"Next\" key indicating the next stage to execute or and \"End\" key indicating it\nis the last stage.\n\nBody: \n    {\n        \"name\": string,\n        \"StartAt\": string - name of starting stage,\n        \"Stages\": {\n            \"stage-name\": {\n                \"Next\": \"string - name of next stage\"\n            },\n            ...,\n            \"stage-name\": {\n                \"End\": true\n            }\n        }\n    }\n\n\nReturns:\n    A dict mapping keys to the corresponding workflow created including the \n    AWS resources used to execute each stage.        \n\n    {\n        \"name\": string,\n        \"StartAt\": string - name of starting stage,\n        \"Stages\": {\n            \"stage-name\": {\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"configuration\": stageConfigurationObject,\n                \"Next\": \"string - name of next stage\"\n            },\n            ...,\n            \"stage-name\": {\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"configuration\": stageConfigurationObject,\n                \"End\": true\n            }\n        }\n    }\n    \n\nRaises:\n    200: The workflow was created successfully.\n    400: Bad Request - one of the input stages was not found or was invalid\n    500: Internal server error ",
                 "produces": [
                   "application/json"
                 ],
@@ -650,6 +666,92 @@
                   "uri": {
                     "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
                   }
+                }
+              }
+            },
+            "/workflow/configuration/{name}": {
+              "get": {
+                "consumes": [
+                  "application/json"
+                ],
+                "description": "Returns:\n    A dictionary contianing the workflow configuration.\n\nRaises:\n    200: All workflows returned sucessfully.\n    404: Not found\n    500: Internal server error ",
+                "parameters": [
+                  {
+                    "in": "path",
+                    "name": "name",
+                    "required": true,
+                    "type": "string"
+                  }
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "summary": "Get a workflow configruation object by name",
+                "x-amazon-apigateway-integration": {
+                  "contentHandling": "CONVERT_TO_TEXT",
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "aws_proxy",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
+                  }
+                }
+              },
+              "options": {
+                "consumes": [
+                  "application/json"
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "headers": {
+                      "Access-Control-Allow-Headers": {
+                        "type": "string"
+                      },
+                      "Access-Control-Allow-Methods": {
+                        "type": "string"
+                      },
+                      "Access-Control-Allow-Origin": {
+                        "type": "string"
+                      }
+                    },
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "x-amazon-apigateway-integration": {
+                  "passthroughBehavior": "when_no_match",
+                  "requestTemplates": {
+                    "application/json": "{\"statusCode\": 200}"
+                  },
+                  "responses": {
+                    "default": {
+                      "responseParameters": {
+                        "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
+                        "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Origin": "'*'"
+                      },
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "mock"
                 }
               }
             },
@@ -1076,7 +1178,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "The body defines the configuration parameters for the operator, the \nexpected inputs and their data types as well as a state machine that \ndefines the operator.  The state machine must contain logic to make a \nruntime decision of whether or not the opetator will execute based on the \ninputs and configuration presented to it.  For example, if the input is an \naudio file, the operator must check the configuration and decide if it can \nprocess audio.  \n\nIf a stateMachineArn is provided on the input, then the ASL for the \noperator is copied from the exsting state machine.   Otherwise, the ASL \nfor the state machine must be specified in the body.\n\nBody: \n    {\n        \"name\": \"string\",\n        \"configuration\" : {\n            \"mediaType\": \"video\",\n            \"enabled:\": True,\n            \"configruation1\": \"value1\",\n            \"configruation2\": \"value2\",\n            ...\n        },\n        \"input\": {\n            \"metadata\": {\n                \"name\":\"input1\",\n                \"type\":\"string\",\n                \"required\": false\n            }\n        },\n        \"stateMachineArn\":arn,\n        \"stateMachineExecutionRoleArn\":arn\n\n    }\n\nReturns:\n    A dict mapping keys to the corresponding operation created including \n    the ASL for the duplicated state machine an id and a create time.\n\nRaises:\n    200: The operation was created successfully.\n    400: Bad Request - the input state machine ARN was not found or the \n         state machine ASL is invalid\n    500: Internal server error ",
+                "description": "The body defines the configuration parameters for the operator, the \nexpected inputs and their data types as well as a state machine that \ndefines the operator.  The state machine must contain logic to make a \nruntime decision of whether or not the opetator will execute based on the \ninputs and configuration presented to it.  For example, if the input is an \naudio file, the operator must check the configuration and decide if it can \nprocess audio.  \n\nIf a stateMachineArn is provided on the input, then the ASL for the \noperator is copied from the exsting state machine.   Otherwise, the ASL \nfor the state machine must be specified in the body.\n\nBody: \n    {\n        \"name\": \"string\",\n        \"configuration\" : {\n            \"mediaType\": \"video\",\n            \"enabled:\": True,\n            \"configuration1\": \"value1\",\n            \"configuration2\": \"value2\",\n            ...\n        }\n        \"stateMachineArn\":arn,\n        \"stateMachineExecutionRoleArn\":arn\n\n    }\n\nReturns:\n    A dict mapping keys to the corresponding operation created including \n    the ASL for the duplicated state machine an id and a create time.\n\nRaises:\n    200: The operation was created successfully.\n    400: Bad Request - the input state machine ARN was not found or the \n         state machine ASL is invalid\n    500: Internal server error ",
                 "produces": [
                   "application/json"
                 ],
@@ -1302,7 +1404,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "A stage is a set of operations that are grouped so they can be executed in parallel.\nWhen the stage is executed as part of a workflow, operations within a stage are executed as\nbranches in a parallel state.  The generated state machines status is tracked by the \nworkflow engine control plane during execution.\n\nBody: \n    {\n    \"name\":\"stage-name\",\n    \"operations\": [\"operation-name1\", \"operation-name2\", ...]\n    }\n\nReturns:\n    A dict mapping keys to the corresponding stage created including \n    the ARN of the state machine created. \n\n    {\n        \"name\": \"stage-name\",\n        \"operations\": [\n            \"operation-name1\",\n            \"operation-name2\", \n            ...\n        ],\n        \"stateMachineArn\": ARN-string\n    }\n\nRaises:\n    200: The stage was created successfully.\n    400: Bad Request - one of the input state machines was not found or was invalid\n    500: Internal server error ",
+                "description": "A stage is a set of operations that are grouped so they can be executed in parallel.\nWhen the stage is executed as part of a workflow, operations within a stage are executed as\nbranches in a parallel state.  The generated state machines status is tracked by the \nworkflow engine control plane during execution.\n\nBody: \n    {\n    \"name\":\"stage-name\",\n    \"operations\": [\"operation-name1\", \"operation-name2\", ...]\n    }\n\nReturns:\n    A dict mapping keys to the corresponding stage created including \n    the ARN of the state machine created. \n\n    {\n        \"name\": \"stage-name\",\n        \"operations\": [\n            \"operation-name1\",\n            \"operation-name2\", \n            ...\n        ],\n        \"configuration\": {\n            \"operation-name1\": operation-configuration-object1,\n            \"operation-name2\": operation-configuration-object1,\n            ...\n        }\n        \"stateMachineArn\": ARN-string\n    }\n\nRaises:\n    200: The stage was created successfully.\n    400: Bad Request - one of the input state machines was not found or was invalid\n    500: Internal server error ",
                 "produces": [
                   "application/json"
                 ],
@@ -1559,10 +1661,10 @@
         }
       }
     },
-    "RestAPIDeploymentbcb989d25e": {
+    "RestAPIDeploymentce26c28197": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
-        "Description": "RestApi deployment id: bcb989d25e12dc768c67741e5caca9b219503208",
+        "Description": "RestApi deployment id: ce26c281976108f46a0a7c9f2a48e11ebc9ceaee",
         "RestApiId": {
           "Ref": "RestAPI"
         },
@@ -1573,7 +1675,7 @@
       "Type": "AWS::ApiGateway::Stage",
       "Properties": {
         "DeploymentId": {
-          "Ref": "RestAPIDeploymentbcb989d25e"
+          "Ref": "RestAPIDeploymentce26c28197"
         },
         "RestApiId": {
           "Ref": "RestAPI"

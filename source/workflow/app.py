@@ -11,7 +11,23 @@ from datetime import datetime
 import json
 import time
 import decimal
-import ./awsmas
+import awsmas
+# FIXME - why does importing awsmas not work?
+WORKFLOW_STATUS_STARTED = "Started"
+WORKFLOW_STATUS_ERROR = "Error"
+WORKFLOW_STATUS_COMPLETE = "Complete"
+
+STAGE_STATUS_NOT_STARTED = "Not Started"
+STAGE_STATUS_STARTED = "Started"
+STAGE_STATUS_EXECUTING = "Executing"
+STAGE_STATUS_ERROR = "Error"
+STAGE_STATUS_COMPLETE = "Complete"
+
+OPERATION_STATUS_NOT_STARTED = "Not Started"
+OPERATION_STATUS_STARTED = "Started"
+OPERATION_STATUS_EXECUTING = "Executing"
+OPERATION_STATUS_ERROR = "Error"
+OPERATION_STATUS_COMPLETE = "Complete"
 
 APP_NAME = "workflow-api"
 API_STAGE = "dev"
@@ -51,6 +67,7 @@ SQS_RESOURCE = boto3.resource('sqs')
 SQS_CLIENT = boto3.client('sqs')
 
 def complete_stage_execution_lambda(event, context):
+    print(event)
     return complete_stage_execution("lambda", event["status"], event["outputs"], event["workflow_execution_id"])
 
 
@@ -81,16 +98,14 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         print("STAGE NAME")
         print(stage['name'])
 
-        if stage["name"] == "Preprocess":
-            print(json.dumps(outputs))
-            stage_outputs = map_preprocess_sfn_output(outputs)
-            print("MAPPED OUTPUTS")
-            print(json.dumps(stage_outputs))
-        elif stage["name"] == "Analysis":
-            print(json.dumps(outputs))
-            stage_outputs = map_analysis_sfn_output(outputs)
-            print("MAPPED OUTPUTS")
-            print(json.dumps(stage_outputs))
+        stage_outputs = outputs
+
+        # Roll up operation status
+        # # if any operation did not complete successfully, the stage has failed
+        status = STAGE_STATUS_COMPLETE
+        for operation in outputs:
+            if operation["status"] != OPERATION_STATUS_COMPLETE:
+                status = STAGE_STATUS_ERROR                
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
                                                  ]["status"] = status
@@ -103,21 +118,25 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
 
         print(json.dumps(stage_outputs))
 
-        # update workflow globals
-        if "media" in stage_outputs:
-            for mediaType in stage_outputs["media"].keys():
-                # replace media with trasformed or created media from this stage
-                print(mediaType)
-                workflow_execution['globals']["media"][mediaType] = stage_outputs["media"][mediaType]
-
         if "metadata" not in workflow_execution['globals']:
             workflow_execution['globals']["metadata"] = {}
 
-        if "metadata" in stage_outputs:
-            for key in stage_outputs["metadata"].keys():
-                print(key)
-                workflow_execution['globals']["metadata"][key] = stage_outputs["metadata"][key]
+        # Roll up operation media and metadata outputs
+        for operation_outputs in outputs:
+            if "media" in operation:
+                for mediaType in operation_outputs["media"].keys():
+                    # replace media with trasformed or created media from this stage
+                    print(mediaType)
+                    workflow_execution['globals']["media"][mediaType] = operation_outputs["media"][mediaType]
+        
+            if "metadata" in operation_outputs:
+                for key in operation_outputs["metadata"].keys():
+                    print(key)
+                    workflow_execution['globals']["metadata"][key] = operation_outputs["metadata"][key]
 
+        # Save the workflow status
+        execution_table.put_item(Item=workflow_execution)
+        
         if status == STAGE_STATUS_COMPLETE:
             workflow_execution = start_next_stage_execution(
                 "workflow", workflow_execution)

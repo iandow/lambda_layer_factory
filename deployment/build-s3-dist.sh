@@ -146,8 +146,8 @@ cd "$source_dir/workflow-api" || exit
 bucket="$1-us-east-1"
 prefix="media-analysis-solution/$2"
 
-mkdir dist
-rm ./dist/*
+[ -e dist ] && rm -r dist
+mkdir -p dist
 
 chalice package dist
 ./chalice-fix-inputs.py

@@ -38,15 +38,6 @@ Resources:
               -
                 Effect: Allow
                 Action:
-                  - dynamodb:GetItem
-                  - dynamodb:PutItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:Scan
-                Resource:
-                  - !Join ["", ["arn:aws:dynamodb:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":table/",Ref: "WorkflowTable"]]
-              -
-                Effect: Allow
-                Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
@@ -72,8 +63,6 @@ Resources:
       Runtime: python3.6
       Timeout: 900
     Type: AWS::Lambda::Function 
-    
-    AWSTemplateFormatVersion: '2010-09-09'
 
 # IAM Roles:
   StepFunctionRole:
@@ -121,7 +110,7 @@ Resources:
               "Choices": [{
                 "Variable": "$.configuration.test-operation.enabled",
                 "BooleanEquals": true,
-                "Next": "Test Operation"
+                "Next": "Start Test"
               }],
               "Default": "Test Not Started"
             },
@@ -132,7 +121,7 @@ Resources:
 
             "Start Test": {
               "Type": "Task",
-              "Resource": "${TestStepFunction.Arn}",
+              "Resource": "${TestVideoOperationLambda.Arn}",
               "End": true
             }
             

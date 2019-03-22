@@ -59,7 +59,9 @@ OPERATION_TABLE_NAME = os.environ["OPERATION_TABLE_NAME"]
 #OPERATION_TABLE_NAME = "mas-workflowOperation"
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
+STAGE_EXECUTION_ROLE = os.environ["STAGE_EXECUTION_ROLE"]
 COMPLETE_STAGE_LAMBDA_ARN = os.environ["COMPLETE_STAGE_LAMBDA_ARN"]
+
 # FIXME - need create stage API and custom resource to break circular dependency
 PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
 ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
@@ -339,12 +341,15 @@ def create_stage():
         stageAsl["States"][name] = {
             "Type": "Parallel",
             "Next": "Complete Stage",
-            "ResultPath": "$.stage",
+            "ResultPath": "$.outputs",
             "Branches": [
             ]
         }
 
-        # Add a branch for each operation
+        # Add a branch to the stage state machine for each operation, build up default 
+        # configuration for the stage based on the operator configuration
+        
+        
         for op in stage["operations"]:
             # lookup base workflow
             operation = get_operation_by_name(op)
@@ -355,6 +360,9 @@ def create_stage():
             
             configuration[op] = operation[op]["configuration"]
 
+            #FIXME - construct Role to execute state machine from operation roles
+            stageStateMachineExecutionRoleArn = operation[op]["stateMachineExecutionRoleArn"]
+
         logger.info(json.dumps(stageAsl))
         
         stage["configuration"] = configuration
@@ -362,7 +370,7 @@ def create_stage():
         response = SFN_CLIENT.create_state_machine(
             name=name,
             definition=json.dumps(stageAsl),
-            roleArn=TEMP_ROLE
+            roleArn=stageStateMachineExecutionRoleArn
         )    
 
         stage["stateMachineArn"] = response["stateMachineArn"]
@@ -523,7 +531,7 @@ def create_workflow():
     return workflow
 
 
-TEMP_ROLE = "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN"
+
 
 @app.route('/workflow', cors=True, methods=['PUT'])
 def update_workflow():
