@@ -177,31 +177,31 @@ echo "Building mediaconvert functions"
 
 # Mediaconvert
 
-zip $dist_dir/startMediaConvert.zip $sky_demo_dir/operations/mediaconvert/startMediaConvert.js
-zip $dist_dir/getMediaConvert.zip $sky_demo_dir/operations/mediaconvert/getMediaConvert.js
+zip -j $dist_dir/startMediaConvert.zip $sky_demo_dir/operations/mediaconvert/startMediaConvert.js
+zip -j $dist_dir/getMediaConvert.zip $sky_demo_dir/operations/mediaconvert/getMediaConvert.js
 
 echo "Building transcribe functions"
 
 # Transcribe
 
-zip $dist_dir/startTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-start.js
-zip $dist_dir/checkTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-checkstatus.js
-zip $dist_dir/putS3Transcribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-put-s3.py
-zip $dist_dir/resultTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-result.js
+zip -j $dist_dir/startTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-start.js
+zip -j $dist_dir/checkTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-checkstatus.js
+zip -j $dist_dir/putS3Transcribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-put-s3.py
+zip -j $dist_dir/resultTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-result.js
 
 echo "Building polly functions"
 
 # Polly
 
-zip $dist_dir/startPolly.zip $sky_demo_dir/operations/polly/mas-start-polly.py
-zip $dist_dir/checkPolly.zip $sky_demo_dir/operations/polly/mas-check-polly.py
+zip -j $dist_dir/startPolly.zip $sky_demo_dir/operations/polly/mas-start-polly.py
+zip -j $dist_dir/checkPolly.zip $sky_demo_dir/operations/polly/mas-check-polly.py
 
 echo "Building translate functions"
 
 # Translate
 
-zip $dist_dir/startTranslate.zip $sky_demo_dir/operations/translate/mas-translate.py
-zip $dist_dir/putS3Translate.zip $sky_demo_dir/operations/translate/mas-translate-put-s3.py
+zip -j $dist_dir/startTranslate.zip $sky_demo_dir/operations/translate/mas-translate.py
+zip -j $dist_dir/putS3Translate.zip $sky_demo_dir/operations/translate/mas-translate-put-s3.py
 
 
 
