@@ -11,38 +11,43 @@
 # The template will then expect the source code to be located in the solutions-[region_name] bucket
 
 # Check to see if input has been provided:
-if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "Please provide the base source bucket name and version where the lambda code will eventually reside."
-    echo "For example: ./build-s3-dist.sh solutions v1.0.0"
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+    echo "Please provide the base source bucket name,  version where the lambda code will eventually reside and the region of the deploy."
+    echo "For example: ./build-s3-dist.sh solutions v1.0.0 us-east-1"
     exit 1
 fi
+
+bucket_basename=$1
+version=$2
+region=$3
+bucket=$1-$3
 
 echo "------------------------------------------------------------------------------"
 echo "Build S3 Bucket"
 echo "------------------------------------------------------------------------------"
 # Build source S3 Bucket
 
-if [[ -d ~/.aws ]]; then
+# if [[ -d ~/.aws ]]; then
 
-echo "This script assumes your aws cli is setup correctly. Here is the config we have:"
-cat ~/.aws/config
-echo "Ensure this is the region you want to deploy too"
-echo "Please verify you have the correct access keys in your credentials file and iam permissions to create an s3 bucket"
+# echo "This script assumes your aws cli is setup correctly. Here is the config we have:"
+# cat ~/.aws/config
+# echo "Ensure this is the region you want to deploy too"
+# echo "Please verify you have the correct access keys in your credentials file and iam permissions to create an s3 bucket"
 
-read -p "Is your AWS CLI Setup correctly? (y or yes to continue)"  confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 1
+# read -p "Is your AWS CLI Setup correctly? (y or yes to continue)"  confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit 1
 
-bucket="$1`date +%s`"
-echo "We are creating an s3 bucket named $bucket in your configured AWS account"
+# bucket="$1`date +%s`"
+# echo "We are creating an s3 bucket named $bucket in your configured AWS account"
 
-aws s3 mb s3://$bucket/
+# aws s3 mb s3://$bucket/
 
-elif [[ ! -d ~/.aws ]]; then
+# elif [[ ! -d ~/.aws ]]; then
 
-echo "This script requires the AWS CLI to be setup"
+# echo "This script requires the AWS CLI to be setup"
 
-exit 1
+# exit 1
 
-fi
+# fi
 
 
 
@@ -256,8 +261,11 @@ echo "--------------------------------------------------------------------------
 echo "Building Workflow Lambda function"
 cd "$source_dir/workflow-api" || exit
 
-mkdir dist
-rm ./dist/*
+prefix="media-analysis-solution/$2/code"
+
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
 
 if ! [ -x "$(command -v chalice)" ]; then
   echo 'Chalice is not installed. It is required for this solution. Exiting.'
@@ -267,8 +275,7 @@ fi
 
 chalice package dist
 ./chalice-fix-inputs.py
-aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --output-template-file "dist/workflowapi_sam.json" --profile default
-
+aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/workflowapi_sam.yaml" --profile default
 
 # Need to add something here to ensure docopt and aws-sam-translator are present
 ./sam-translate.py
@@ -279,6 +286,7 @@ cp dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml
 
 echo "cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template"
 cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template
+
 
 echo "------------------------------------------------------------------------------"
 echo "Test Operations"
@@ -416,19 +424,19 @@ echo "--------------------------------------------------------------------------
 
 # Task to upload code to newly created S3 bucket
 
-echo "We are copying in your source into the newly created bucket"
+echo "We are copying in your source into the S3 bucket"
 
 for file in $dist_dir/*.zip
 do
-    echo $file
-    aws s3 cp $file s3://$bucket/media-analysis-solution/$2/code/
-done
+     echo $file
+     aws s3 cp $file s3://$bucket/media-analysis-solution/$2/code/
+ done
 
-for file in $dist_dir/*.template
-do
-    echo $file
-    aws s3 cp $file s3://$bucket/media-analysis-solution/$2/cf/
-done
+ for file in $dist_dir/*.template
+ do
+     echo $file
+     aws s3 cp $file s3://$bucket/media-analysis-solution/$2/cf/
+ done
 
 
 echo "------------------------------------------------------------------------------"

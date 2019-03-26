@@ -1,47 +1,62 @@
 ------------------------------------------------------------------------------
+Build S3 Bucket
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 Rebuild distribution
 ------------------------------------------------------------------------------
 rm -rf /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist
 mkdir -p /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist
 ------------------------------------------------------------------------------
-CloudFormation Templates
+MAS 1.0 CloudFormation Templates
 ------------------------------------------------------------------------------
-cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-deploy.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
-Updating code source bucket in template with 'elementalrodeo99'
-sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
+------------------------------------------------------------------------------
+MAS 2.0 CloudFormation Templates
+------------------------------------------------------------------------------
+Copying instant translate template to dist directory
+cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/sky_instant_translate.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/sky_instant_translate.template
+Updating code source bucket in instant translate template with 'elementalrodeo99'
+sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/sky_instant_translate.template
 Replacing solution version in template with 'v2.0.4'
-sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-deploy.template
-cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-api-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
-Updating code source bucket in template with 'elementalrodeo99'
-sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
-Replacing solution version in template with 'v2.0.4'
-sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-api-stack.template
-Replacing solution version in template with 'v2.0.4'
+sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/sky_instant_translate.template
+Copying workflow template to dist directory
 cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
-Updating code source bucket in template with 'elementalrodeo99'
+Updating code source bucket in workflow template with 'elementalrodeo99'
 sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
 Replacing solution version in template with 'v2.0.4'
 sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-stack.template
-Replacing solution version in template with 'v2.0.4'
+Copying operations template to dist directory
 cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-test-operations-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
-Updating code source bucket in template with 'elementalrodeo99'
+Updating code source bucket in operations template with 'elementalrodeo99'
 sed -i '' -e s/%%BUCKET_NAME%%/elementalrodeo99/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
 Replacing solution version in template with 'v2.0.4'
 sed -i '' -e s/%%VERSION%%/v2.0.4/g /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-test-operations-stack.template
-cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-storage-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-storage-stack.template
-cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-state-machine-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-state-machine-stack.template
 cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-preprocess-state-machine-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-preprocess-state-machine-stack.template
+------------------------------------------------------------------------------
+Sky Translate Demo Functions
+------------------------------------------------------------------------------
+Building mediaconvert functions
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/mediaconvert/startMediaConvert.js (deflated 69%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/mediaconvert/getMediaConvert.js (deflated 69%)
+Building transcribe functions
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/transcribe/mas-transcribe-start.js (deflated 61%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/transcribe/mas-transcribe-checkstatus.js (deflated 63%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/transcribe/mas-transcribe-put-s3.py (deflated 54%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/transcribe/mas-transcribe-result.js (deflated 66%)
+Building polly functions
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/polly/mas-start-polly.py (deflated 52%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/polly/mas-check-polly.py (deflated 62%)
+Building translate functions
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/translate/mas-translate.py (deflated 56%)
+  adding: Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/../sky_news_demo//operations/translate/mas-translate-put-s3.py (deflated 53%)
 ------------------------------------------------------------------------------
 Stage Completion Function
 ------------------------------------------------------------------------------
 Building Stage completion function
-create requirements for lambda
+Create requirements for lambda
 ~/gitmas/MediaAnalysisSolution/source/workflow/package ~/gitmas/MediaAnalysisSolution/source/workflow
-create lambda package
-
-zip error: Nothing to do! (try: zip -r9 ../dist/workflow.zip . -i .)
+Create lambda package
+  adding: setup.cfg (stored 0%)
 ~/gitmas/MediaAnalysisSolution/source/workflow
-	zip warning: dist/workflow.zip not found or empty
   adding: app.py (deflated 75%)
   adding: awsmas.py (deflated 63%)
 ------------------------------------------------------------------------------
@@ -54,7 +69,8 @@ Successfully packaged artifacts and wrote output template to file dist/workflowa
 Execute the following command to deploy the packaged template
 aws cloudformation deploy --template-file /Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi_sam.yaml --stack-name <YOUR STACK NAME>
 /Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api
-/Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi_sam.json
+/Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi_sam.yaml
+Wrote transformed CloudFormation template to: /Users/burkleaa/gitmas/MediaAnalysisSolution/source/workflow-api/dist/workflowapi.yaml
 cp ./dist/workflowapi.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-api-stack.yaml
 cp /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/media-analysis-workflow-api-stack.yaml /Users/burkleaa/gitmas/MediaAnalysisSolution/deployment/dist/media-analysis-workflow-api-stack.template
 ------------------------------------------------------------------------------
@@ -64,3 +80,74 @@ Building Stage completion function
 create requirements for lambda
 ~/gitmas/MediaAnalysisSolution/source/operations/test/package ~/gitmas/MediaAnalysisSolution/source/operations/test
 create lambda package
+  adding: setup.cfg (stored 0%)
+~/gitmas/MediaAnalysisSolution/source/operations/test
+  adding: test.py (deflated 54%)
+------------------------------------------------------------------------------
+Analysis2 Function
+------------------------------------------------------------------------------
+Building Analysis Lambda function
+up to date in 0.754s
+
+> media-analysis-function2@0.0.1 build /Users/burkleaa/gitmas/MediaAnalysisSolution/source/analysis2
+> npm-run-all -s build-init build:copy build:install
+
+
+> media-analysis-function2@0.0.1 zip /Users/burkleaa/gitmas/MediaAnalysisSolution/source/analysis2
+> cd dist && zip -rq media-analysis-function2.zip .
+
+------------------------------------------------------------------------------
+Preprocess Function
+------------------------------------------------------------------------------
+Building Preprocess Lambda function
+up to date in 0.787s
+
+> media-analysis-preprocess-function@0.0.1 build /Users/burkleaa/gitmas/MediaAnalysisSolution/source/preprocess
+> npm-run-all -s build-init build:copy build:install
+
+
+> media-analysis-preprocess-function@0.0.1 zip /Users/burkleaa/gitmas/MediaAnalysisSolution/source/preprocess
+> cd dist && zip -rq media-analysis-preprocess-function.zip .
+
+------------------------------------------------------------------------------
+Copy dist to S3
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+S3 Packaging Complete
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+Cleaning up
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+Done
+------------------------------------------------------------------------------
+We are copying in your source into the newly created bucket
+dist/checkPolly.zip
+Completed 837 Bytes/837 Bytes (1.6 KiB/s) with 1 file(s) remainingupload: dist/checkPolly.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/checkPolly.zip
+dist/checkTranscribe.zip
+Completed 1.1 KiB/1.1 KiB (2.3 KiB/s) with 1 file(s) remainingupload: dist/checkTranscribe.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/checkTranscribe.zip
+dist/getMediaConvert.zip
+Completed 1.2 KiB/1.2 KiB (2.7 KiB/s) with 1 file(s) remainingupload: dist/getMediaConvert.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/getMediaConvert.zip
+dist/media-analysis-function2.zip
+Completed 256.0 KiB/4.8 MiB (107.8 KiB/s) with 1 file(s) remainingCompleted 512.0 KiB/4.8 MiB (111.5 KiB/s) with 1 file(s) remainingCompleted 768.0 KiB/4.8 MiB (141.6 KiB/s) with 1 file(s) remainingCompleted 1.0 MiB/4.8 MiB (171.3 KiB/s) with 1 file(s) remaining  Completed 1.2 MiB/4.8 MiB (200.6 KiB/s) with 1 file(s) remaining  Completed 1.5 MiB/4.8 MiB (229.3 KiB/s) with 1 file(s) remaining  Completed 1.8 MiB/4.8 MiB (256.3 KiB/s) with 1 file(s) remaining  Completed 2.0 MiB/4.8 MiB (283.3 KiB/s) with 1 file(s) remaining  Completed 2.2 MiB/4.8 MiB (310.4 KiB/s) with 1 file(s) remaining  Completed 2.5 MiB/4.8 MiB (335.5 KiB/s) with 1 file(s) remaining  Completed 2.8 MiB/4.8 MiB (360.8 KiB/s) with 1 file(s) remaining  Completed 3.0 MiB/4.8 MiB (385.5 KiB/s) with 1 file(s) remaining  Completed 3.2 MiB/4.8 MiB (409.4 KiB/s) with 1 file(s) remaining  Completed 3.5 MiB/4.8 MiB (432.8 KiB/s) with 1 file(s) remaining  Completed 3.8 MiB/4.8 MiB (455.5 KiB/s) with 1 file(s) remaining  Completed 4.0 MiB/4.8 MiB (479.4 KiB/s) with 1 file(s) remaining  Completed 4.2 MiB/4.8 MiB (501.3 KiB/s) with 1 file(s) remaining  Completed 4.5 MiB/4.8 MiB (524.2 KiB/s) with 1 file(s) remaining  Completed 4.8 MiB/4.8 MiB (545.2 KiB/s) with 1 file(s) remaining  Completed 4.8 MiB/4.8 MiB (538.8 KiB/s) with 1 file(s) remaining  upload: dist/media-analysis-function2.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/media-analysis-function2.zip
+dist/media-analysis-preprocess-function.zip
+Completed 256.0 KiB/2.4 MiB (102.5 KiB/s) with 1 file(s) remainingCompleted 512.0 KiB/2.4 MiB (109.8 KiB/s) with 1 file(s) remainingCompleted 768.0 KiB/2.4 MiB (139.7 KiB/s) with 1 file(s) remainingCompleted 1.0 MiB/2.4 MiB (169.9 KiB/s) with 1 file(s) remaining  Completed 1.2 MiB/2.4 MiB (198.9 KiB/s) with 1 file(s) remaining  Completed 1.5 MiB/2.4 MiB (227.4 KiB/s) with 1 file(s) remaining  Completed 1.8 MiB/2.4 MiB (255.9 KiB/s) with 1 file(s) remaining  Completed 2.0 MiB/2.4 MiB (282.7 KiB/s) with 1 file(s) remaining  Completed 2.2 MiB/2.4 MiB (308.1 KiB/s) with 1 file(s) remaining  Completed 2.4 MiB/2.4 MiB (315.3 KiB/s) with 1 file(s) remaining  upload: dist/media-analysis-preprocess-function.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/media-analysis-preprocess-function.zip
+dist/putS3Transcribe.zip
+Completed 655 Bytes/655 Bytes (1.3 KiB/s) with 1 file(s) remainingupload: dist/putS3Transcribe.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/putS3Transcribe.zip
+dist/putS3Translate.zip
+Completed 666 Bytes/666 Bytes (1.4 KiB/s) with 1 file(s) remainingupload: dist/putS3Translate.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/putS3Translate.zip
+dist/resultTranscribe.zip
+Completed 1.5 KiB/1.5 KiB (2.9 KiB/s) with 1 file(s) remainingupload: dist/resultTranscribe.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/resultTranscribe.zip
+dist/startMediaConvert.zip
+Completed 1.6 KiB/1.6 KiB (3.3 KiB/s) with 1 file(s) remainingupload: dist/startMediaConvert.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/startMediaConvert.zip
+dist/startPolly.zip
+Completed 779 Bytes/779 Bytes (1.6 KiB/s) with 1 file(s) remainingupload: dist/startPolly.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/startPolly.zip
+dist/startTranscribe.zip
+Completed 1.2 KiB/1.2 KiB (2.5 KiB/s) with 1 file(s) remainingupload: dist/startTranscribe.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/startTranscribe.zip
+dist/startTranslate.zip
+Completed 780 Bytes/780 Bytes (1.6 KiB/s) with 1 file(s) remainingupload: dist/startTranslate.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/startTranslate.zip
+dist/test_operations.zip
+Completed 595 Bytes/595 Bytes (1.2 KiB/s) with 1 file(s) remainingupload: dist/test_operations.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/test_operations.zip
+dist/workflow.zip
+Completed 2.5 KiB/2.5 KiB (4.8 KiB/s) with 1 file(s) remainingupload: dist/workflow.zip to s3://elementalrodeo99-us-east-1/media-analysis-solution/v2.0.4/code/workflow.zip
+/*.template
