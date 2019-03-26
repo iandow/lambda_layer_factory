@@ -1,0 +1,72 @@
+{
+    "name": "Sky-test",
+    "StartAt": "preprocess",
+    "Stages": {
+        "transcribe": {
+            "name": "transcribe",
+            "operations": [
+                "transcribe"
+            ],
+            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:transcribe",
+            "configuration": {
+                "transcribe": {
+                    "transcribeLanguage": "en-US",
+                    "mediaType": "audio",
+                    "enabled": true,
+                    "transcribeJobId": "null"
+                }
+            },
+            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+            "Next": "translate"
+        },
+        "preprocess": {
+            "name": "preprocess",
+            "operations": [
+                "mediaconvert"
+            ],
+            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:preprocess",
+            "configuration": {
+                "mediaconvert": {
+                    "mediaType": "video",
+                    "enabled": true,
+                    "job_id": "null"
+                }
+            },
+            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+            "Next": "transcribe"
+        },
+        "polly": {
+            "name": "polly",
+            "End": true,
+            "operations": [
+                "polly"
+            ],
+            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:polly",
+            "configuration": {
+                "polly": {
+                    "pollyJobId": "null",
+                    "mediaType": "text",
+                    "enabled": true
+                }
+            },
+            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution"
+        },
+        "translate": {
+            "name": "translate",
+            "operations": [
+                "translate"
+            ],
+            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:translate",
+            "configuration": {
+                "translate": {
+                    "mediaType": "text",
+                    "TargetLanguageCode": "ru",
+                    "enabled": true,
+                    "SourceLanguageCode": "en"
+                }
+            },
+            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+            "Next": "polly"
+        }
+    }
+ }

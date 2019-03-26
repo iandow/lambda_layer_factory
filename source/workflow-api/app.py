@@ -78,6 +78,10 @@ SFN_CLIENT = boto3.client('stepfunctions')
 SQS_RESOURCE = boto3.resource('sqs')
 SQS_CLIENT = boto3.client('sqs')
 
+# IAM resource
+IAM_CLIENT = boto3.client('iam')
+IAM_RESOURCE = boto3.resource('iam')
+
 # Environment
 
 DEFAULT_WORKFLOW_SQS = {
@@ -361,12 +365,42 @@ def create_stage():
             configuration[op] = operation[op]["configuration"]
 
             #FIXME - construct Role to execute state machine from operation roles
+
             stageStateMachineExecutionRoleArn = operation[op]["stateMachineExecutionRoleArn"]
 
         logger.info(json.dumps(stageAsl))
         
         stage["configuration"] = configuration
 
+        # FIXME: Build role for stage state machine
+        # stageAssumeRolePolicyDoc = {
+        #     "Version": "2012-10-17",
+        #     "Statement": [
+        #         {
+        #         "Effect": "Allow",
+        #         "Principal": {
+        #             "Service": "states.amazonaws.com"
+        #         },
+        #         "Action": "sts:AssumeRole"
+        #         }
+        #     ]
+        #     }
+        
+        # stageRole = {
+        #     "Version": "2012-10-17",
+        #     "Statement": []
+        # }
+
+        # for op in stage["operations"]:
+        #     # lookup base workflow
+        #     operation = get_operation_by_name(op)
+        #     #logger.info(json.dumps(operation))
+
+        #     opRole = op["stateMachineExecutionRoleArn"]
+        #     opRoleName = opRole.split('/')[-1]
+        #     opRoleDefinition = IAM_RESOURCE.Role(opRoleName)
+
+        # Build stage
         response = SFN_CLIENT.create_state_machine(
             name=name,
             definition=json.dumps(stageAsl),
