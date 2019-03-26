@@ -11,7 +11,7 @@ exports.handler = async (event) => {
     try
     {
         await startMediaConvert(event); 
-        event.status = 'IN_PROGRESS';
+        event.status = 'Executing';
         console.log(event)
         return event;
     }

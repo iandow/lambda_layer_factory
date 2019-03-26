@@ -401,7 +401,7 @@ Resources:
               "Choices": [
                 {
                   "Variable": "$.status",
-                  "StringEquals": "IN_PROGRESS",
+                  "StringEquals": "Executing",
                   "Next": "MediaConvert Wait"
                 }
               ],

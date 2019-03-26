@@ -51,7 +51,7 @@ async function getMediaConvertStatus(event)
           console.log(data)
           event.status = data.Job.Status;
 
-          if (data.Job.Status == 'COMPLETE') 
+          if (data.Job.Status == 'Complete')
           {
 
 
@@ -83,7 +83,7 @@ async function getMediaConvertStatus(event)
 
               var output = {"media": {"audio": {"s3bucket": bucket, "s3key": key}}};
               event.output = output;
-              event.status = 'COMPLETE';
+              event.status = 'Complete';
           }
 
         })
