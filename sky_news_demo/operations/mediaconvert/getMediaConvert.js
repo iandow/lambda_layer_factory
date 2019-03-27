@@ -13,7 +13,7 @@ exports.handler = async (event) => {
         var mediaConvertOutput = await getMediaConvertStatus(event);
         console.log('[INFO] Response from mediaconvert', mediaConvertOutput);
 
-        return event;
+        return output;
     }
     catch (error)
     {
@@ -81,9 +81,18 @@ async function getMediaConvertStatus(event)
 
               var key = folder + "/" + name + modifier + "." + extension;
 
-              var output = {"media": {"audio": {"s3bucket": bucket, "s3key": key}}};
-              event.output = output;
-              event.status = 'Complete';
+              var output = {
+                             "name": "mediaconvert",
+                             "media": {
+                                 "audio":
+                                   {
+                                     "s3bucket": bucket,
+                                     "s3key": key
+                                    }
+                               },
+                               "status": "Complete",
+                               "message": "No errors"
+                            };
           }
 
         })
