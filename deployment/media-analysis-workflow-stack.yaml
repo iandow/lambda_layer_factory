@@ -85,6 +85,17 @@ Resources:
                   - logs:PutLogEvents
                 Resource:
                   - !Join ["", ["arn:aws:logs:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":log-group:/aws/lambda/*"]]
+              - Effect: Allow
+                Action: 
+                  - sqs:DeleteMessage
+                  - sqs:ListQueues
+                  - sqs:ChangeMessageVisibility
+                  - sqs:ReceiveMessage
+                  - sqs:SendMessage
+                Resource:
+                  - "Fn::GetAtt":
+                    - StageExecutionQueue
+                    - Arn
 
   # Services - Dynamodb
   WorkflowTable:
