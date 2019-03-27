@@ -105,7 +105,8 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         status = STAGE_STATUS_COMPLETE
         for operation in outputs:
             if operation["status"] != OPERATION_STATUS_COMPLETE:
-                status = STAGE_STATUS_ERROR                
+                status = STAGE_STATUS_ERROR
+                errorMessage = "Stage failed because operation {} execution failed.".format(operation["name"])               
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
                                                  ]["status"] = status

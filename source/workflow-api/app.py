@@ -328,7 +328,7 @@ def create_stage():
 
         stage = app.current_request.json_body
         name = stage["name"]
-        stage["resource"] = STAGE_EXECUTION_QUEUE_URL
+        stage["Resource"] = STAGE_EXECUTION_QUEUE_URL
 
         # Build the stage state machine
         stageAsl = {
@@ -802,6 +802,8 @@ def create_workflow_execution(trigger, workflow_execution):
 
 def initialize_workflow_execution(workflow, workflow_configuration):
 
+    
+
     for stage, configuration in workflow_configuration.items():
 
         # Override default configuration with passed in configuration
@@ -824,6 +826,7 @@ def start_first_stage_execution(trigger, workflow_execution):
         logger.info("STARTING FIRST STAGE")
 
         logger.info(workflow_execution)
+        workflow_execution["status"] = WORKFLOW_STATUS_STARTED
         current_stage = workflow_execution["workflow"]["StartAt"]
         workflow_execution["current_stage"] = current_stage
 
@@ -905,10 +908,10 @@ def execute_stage(input_stage):
         stage["workflow_execution_id"] = workflow_execution_id
 
         ## FIXME - temporary - reverse the opeator name and configuration key to make our demo work
-        if "configuration" in stage:
-            for k, v in stage["configuration"].items():
-                stage[k]= {}
-                stage[k]["configuration"] = v
+        # if "configuration" in stage:
+        #     for k, v in stage["configuration"].items():
+        #         stage[k]= {}
+        #         stage[k]["configuration"] = v
 
         # FIXME check for duplicate SQS messages - SQS messages have AT LEAST ONCE delivery semantics
         # we only want to process an operation once since it could be expensive.

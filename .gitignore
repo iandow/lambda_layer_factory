@@ -10,3 +10,4 @@ scratch/
 deployment/build.sh
 
 old/
+deployment/media-analysis-workflow-api-stack.yaml

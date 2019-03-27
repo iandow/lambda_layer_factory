@@ -64,6 +64,25 @@ Resources:
       Timeout: 900
     Type: AWS::Lambda::Function 
 
+  TestAudioOperationLambda:
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-test-audio"
+      Environment:
+        Variables:
+          Status: "Complete"
+      Handler: test.audio_test_lambda
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "test_operations.zip"]]
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+        - TestExecutionRole
+        - Arn
+      Runtime: python3.6
+      Timeout: 900
+    Type: AWS::Lambda::Function 
+
 # IAM Roles:
   StepFunctionRole:
     Type: "AWS::IAM::Role"
@@ -87,41 +106,36 @@ Resources:
   
 # Step function
 
-  TestStepFunction:
+  TestVideoStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
-      StateMachineName: "TestOperationStateMachine"
+      StateMachineName: "TestVideoStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
+          "StartAt": "Start Video",
           "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.test-operation.mediaType",
-                "StringEquals": "video",
-                "Next": "Test Enabled?"
-              }],
-              "Default": "Test Not Started"
-            },
-
-            "Test Enabled?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.test-operation.enabled",
-                "BooleanEquals": true,
-                "Next": "Start Test"
-              }],
-              "Default": "Test Not Started"
-            },
-
-            "Test Not Started": {
-              "Type": "Succeed"
-            },
-
-            "Start Test": {
+            "Start Video": {
               "Type": "Task",
               "Resource": "${TestVideoOperationLambda.Arn}",
+              "End": true
+            }
+            
+          }
+        }
+      RoleArn: !GetAtt "StepFunctionRole.Arn"
+
+  TestAudioStepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: "TestAudioStateMachine"
+      DefinitionString: !Sub |-
+        {
+          "StartAt": "Start Audio Test",
+          "States": {
+
+            "Start Audio Test": {
+              "Type": "Task",
+              "Resource": "${TestAudioOperationLambda.Arn}",
               "End": true
             }
             
