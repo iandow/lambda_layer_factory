@@ -473,15 +473,29 @@ Resources:
             "Start Transcribe": {
               "Type": "Task",
               "Resource": "${skyStartTranscribeFunction.Arn}",
-              "Next": "Transcribe Wait",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "Transcribe Failed"
-              }]
+              "ResultPath": "$.outputs",
+              "Next": "Did Transcribe Start"
             },
+            "Did Transcribe Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [
+                {
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "Transcribe Wait"
+        			  },
+                {
+                "Variable": "$.status",
+        				"StringEquals": "Complete",
+        				"Next": "Transcribe Result"
+                }
+              ],
+        			"Default": "Transcribe Failed"
+        		},
             "Transcribe Wait": {
               "Type": "Wait",
-              "Seconds": 30,
+              "Seconds": 10,
               "Next": "Get Transcribe Status"
             },
             "Get Transcribe Status": {

@@ -10,8 +10,23 @@ exports.handler = async (event) => {
     
     try
     {
-        event.status = await checkResults(event, 0);
-        return event;
+        var results = await checkResults(event, 0);
+		
+		if (results == 'Executing')
+		{
+			let output = {"name": "transcribe", "status": "Executing", "metadata": {"transcribeJobId": event.metadata.transcribeJobId, "bucket": event.metadata.bucket} };
+			return output
+		}
+		if (results == 'Complete')
+		{
+			let output = {"name": "transcribe", "status": "Complete", "metadata": {"transcribeJobId": event.metadata.transcribeJobId, "bucket": event.metadata.bucket} };
+			return output
+		}
+		if (results == 'Error')
+		{
+			let output = {"name": "transcribe", "status": "Error", "metadata": {"transcribeJobId": event.metadata.transcribeJobId, "bucket": event.metadata.bucket} };
+			return output	
+		}
     }
     catch (error)
     {
@@ -42,7 +57,7 @@ async function checkResults(event, count)
     	try
     	{
     		var transcribeParams = {
-      			TranscriptionJobName: event.configuration.transcribe.transcribeJobId
+      			TranscriptionJobName: event.metadata.transcribeJobId
     		};
     		
     		console.log("[INFO] about to launch check job status with params: %j", transcribeParams);

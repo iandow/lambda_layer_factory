@@ -3,8 +3,7 @@ var transcribe = new AWS.TranscribeService();
 const HTTPS = require('https');
 
 /**
- * Load the results of a transcription from Transcribe and sent to the
- * data plane
+ * Load the results of a transcription from Transcribe
  */
 exports.handler = async (event) => {
     
@@ -19,23 +18,16 @@ exports.handler = async (event) => {
         console.log(transcript)
 
         var output =  {
-                    "media": {
-                        "text": {
-                            "transcript": transcript,
-                            "s3bucket": "",
-                            "s3key": ""
-                            }
+                    "name": "transcribe",
+                    "status": "Complete",
+                     "metadata": {
+                        "transcribeJobId": event.metadata.transcribeJobId,
+                        "bucket": event.metadata.bucket,
+                        "transcription": transcript
                      }
              };
 
-        try {
-            event.output = output;
-        }
-        catch(error) {
-            console.log('Unable to save to the output section')
-        }
-        event.status = 'Complete';
-        return event;
+        return output;
     }
     catch (error)
     {
@@ -96,7 +88,7 @@ async function getResults(event, count)
         try
         {
     		var transcribeParams = {
-      			TranscriptionJobName: event.configuration.transcribe.transcribeJobId
+      			TranscriptionJobName: event.metadata.transcribeJobId
     		};
     		
     		console.log("[INFO] about to load Transcribe parameters with params: %j", transcribeParams);
