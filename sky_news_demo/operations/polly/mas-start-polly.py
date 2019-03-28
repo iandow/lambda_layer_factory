@@ -25,10 +25,10 @@ def lambda_handler(event, context):
 
     polly_job_id = polly_response['SynthesisTask']['TaskId']
 
-    event['configuration']['polly']['pollyJobId'] = polly_job_id
-    event['configuration']['polly']['status'] = 'inProgress'
+    output = {"name": "polly", "status": "Executing", "metadata": {"polly_job_id": polly_job_id, "bucket": bucket } }
 
-    print(event)
+    print(output)
 
-    return event
+    return output
+
 

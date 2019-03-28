@@ -568,7 +568,7 @@ Resources:
             "Start translate": {
               "Type": "Task",
               "Resource": "${skyTranslateFunction.Arn}",
-              "ResultPath": "$.output",
+              "ResultPath": "$.outputs",
               "Next": "Send translation to S3",
               "Catch": [{
                 "ErrorEquals": [ "Error" ],
@@ -577,6 +577,7 @@ Resources:
             },
             "Send translation to S3": {
               "Type": "Task",
+              "InputPath": "$.outputs",
               "Resource": "${skyPutS3TranslateFunction.Arn}",
               "End": true
             },
@@ -622,12 +623,25 @@ Resources:
             "Start polly": {
               "Type": "Task",
               "Resource": "${skyStartPollyFunction.Arn}",
-              "Next": "polly Wait",
+              "ResultPath": "$.outputs",
+              "Next": "Did Polly Start",
               "Catch": [{
                 "ErrorEquals": [ "Error" ],
                 "Next": "polly Failed"
               }]
             },
+            "Did Polly Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [
+                {
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "polly Wait"
+        			  }
+              ],
+        			"Default": "polly Failed"
+        		},
             "polly Wait": {
               "Type": "Wait",
               "Seconds": 10,
