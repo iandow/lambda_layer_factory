@@ -29,7 +29,7 @@ def lambda_handler(event, context):
 
     translated_transcript = translation["TranslatedText"]
 
-    output = {"media": {"text": {"translation": translated_transcript, "s3bucket": "", "s3key": ""}}}
+    output = {"name": "translate", "metadata": {"translation": translated_transcript, "bucket": bucket} }
 
     return output
 

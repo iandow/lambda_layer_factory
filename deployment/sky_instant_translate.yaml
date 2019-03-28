@@ -362,94 +362,79 @@ Resources:
       StateMachineName: "skyPreprocessStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
-          "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.configuration.mediaconvert.mediaType",
-                  "StringEquals": "video",
-                  "Next": "Media Convert Enabled?"
-                }
-              ],
-              "Default": "Media Convert Not Started"
-            },
-            "Media Convert Enabled?": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.configuration.mediaconvert.enabled",
-                  "BooleanEquals": true,
-                  "Next": "Start MediaConvert"
-                }
-              ],
-              "Default": "Media Convert Not Started"
-            },
-            "Media Convert Not Started": {
-              "Type": "Succeed"
-            },
-            "Start MediaConvert": {
-              "Type": "Task",
-              "Resource": "${skyStartMediaConvertFunction.Arn}",
-              "InputPath": "$",
-              "ResultPath": "$",
-              "Next": "Did MediaConvert Start"
-            },
-            "Did MediaConvert Start": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "Executing",
-                  "Next": "MediaConvert Wait"
-                }
-              ],
-              "Default": "Media Convert Failed"
-            },
-            "MediaConvert Wait": {
-              "Type": "Wait",
-              "Seconds": 30,
-              "Next": "Get MediaConvert Status"
-            },
-            "Get MediaConvert Status": {
-              "Type": "Task",
-              "Resource": "${skyCheckMediaConvertFunction.Arn}",
-              "InputPath": "$",
-              "ResultPath": "$",
-              "Next": "Did MediaConvert Complete",
-              "Catch": [
-                {
-                  "ErrorEquals": [
-                    "Error"
-                  ],
-                  "Next": "Media Convert Failed"
-                }
-              ]
-            },
-            "Did MediaConvert Complete": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "FAILED",
-                  "Next": "Media Convert Failed"
-                },
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "COMPLETE",
-                  "Next": "Media Convert Succeeded"
-                }
-              ],
-              "Default": "MediaConvert Wait"
-            },
-            "Media Convert Failed": {
-              "Type": "Fail"
-            },
-            "Media Convert Succeeded": {
-              "Type": "Succeed"
-            }
-          }
+        	"StartAt": "Is Type?",
+        	"States": {
+        		"Is Type?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.mediaconvert.mediaType",
+        				"StringEquals": "video",
+        				"Next": "Media Convert Enabled?"
+        			}],
+        			"Default": "Media Convert Not Started"
+        		},
+        		"Media Convert Enabled?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.mediaconvert.enabled",
+        				"BooleanEquals": true,
+        				"Next": "Start MediaConvert"
+        			}],
+        			"Default": "Media Convert Not Started"
+        		},
+        		"Media Convert Not Started": {
+        			"Type": "Succeed"
+        		},
+        		"Start MediaConvert": {
+        			"Type": "Task",
+        			"Resource": "${skyStartMediaConvertFunction.Arn}",
+        			"ResultPath": "$.outputs",
+        			"Next": "Did MediaConvert Start"
+        		},
+        		"Did MediaConvert Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [{
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "MediaConvert Wait"
+        			}],
+        			"Default": "Media Convert Failed"
+        		},
+        		"MediaConvert Wait": {
+        			"Type": "Wait",
+        			"Seconds": 5,
+        			"Next": "Get MediaConvert Status"
+        		},
+        		"Get MediaConvert Status": {
+        			"Type": "Task",
+        			"Resource": "${skyCheckMediaConvertFunction.Arn}",
+        			"Next": "Did MediaConvert Complete",
+        			"Catch": [{
+        				"ErrorEquals": ["Error"],
+        				"Next": "Media Convert Failed"
+        			}]
+        		},
+        		"Did MediaConvert Complete": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.status",
+        				"StringEquals": "Error",
+        				"Next": "Media Convert Failed"
+        			}, {
+        				"Variable": "$.status",
+        				"StringEquals": "Complete",
+        				"Next": "Media Convert Succeeded"
+        			}],
+        			"Default": "MediaConvert Wait"
+        		},
+        		"Media Convert Failed": {
+        			"Type": "Fail"
+        		},
+        		"Media Convert Succeeded": {
+        			"Type": "Succeed"
+        		}
+        	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
 
@@ -488,15 +473,29 @@ Resources:
             "Start Transcribe": {
               "Type": "Task",
               "Resource": "${skyStartTranscribeFunction.Arn}",
-              "Next": "Transcribe Wait",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "Transcribe Failed"
-              }]
+              "ResultPath": "$.outputs",
+              "Next": "Did Transcribe Start"
             },
+            "Did Transcribe Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [
+                {
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "Transcribe Wait"
+        			  },
+                {
+                "Variable": "$.status",
+        				"StringEquals": "Complete",
+        				"Next": "Transcribe Result"
+                }
+              ],
+        			"Default": "Transcribe Failed"
+        		},
             "Transcribe Wait": {
               "Type": "Wait",
-              "Seconds": 30,
+              "Seconds": 10,
               "Next": "Get Transcribe Status"
             },
             "Get Transcribe Status": {
@@ -569,7 +568,7 @@ Resources:
             "Start translate": {
               "Type": "Task",
               "Resource": "${skyTranslateFunction.Arn}",
-              "ResultPath": "$.output",
+              "ResultPath": "$.outputs",
               "Next": "Send translation to S3",
               "Catch": [{
                 "ErrorEquals": [ "Error" ],
@@ -578,6 +577,7 @@ Resources:
             },
             "Send translation to S3": {
               "Type": "Task",
+              "InputPath": "$.outputs",
               "Resource": "${skyPutS3TranslateFunction.Arn}",
               "End": true
             },
@@ -623,12 +623,25 @@ Resources:
             "Start polly": {
               "Type": "Task",
               "Resource": "${skyStartPollyFunction.Arn}",
-              "Next": "polly Wait",
+              "ResultPath": "$.outputs",
+              "Next": "Did Polly Start",
               "Catch": [{
                 "ErrorEquals": [ "Error" ],
                 "Next": "polly Failed"
               }]
             },
+            "Did Polly Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [
+                {
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "polly Wait"
+        			  }
+              ],
+        			"Default": "polly Failed"
+        		},
             "polly Wait": {
               "Type": "Wait",
               "Seconds": 10,
