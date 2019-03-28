@@ -27,7 +27,7 @@ exports.handler = async (event) => {
         if (transcribeResponse == 'Complete')
         {
             // Should never get here
-            let output = {"name": "transcribe", "status": "Complete", "message": "We got complete when we iniated a job, likely a duplicate", "metadata": {"transcribeJobId": event.configuration.transcribe.transcribeJobId, "bucket": event.input.audio.bucket} };
+            let output = {"name": "transcribe", "status": "Complete", "message": "We got complete when we iniated a job, likely a duplicate", "metadata": {"transcribeJobId": jobId, "bucket": event.input.media.audio.s3bucket} };
             return output
         }
 
