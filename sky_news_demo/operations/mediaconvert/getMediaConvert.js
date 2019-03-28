@@ -10,10 +10,26 @@ exports.handler = async (event) => {
     
     try
     {
-        var mediaConvertOutput = await getMediaConvertStatus(event);
-        console.log('[INFO] Response from mediaconvert', mediaConvertOutput);
+        var endpointParams = await getMediaConvertEndpoint();
+        var mediaConvertOutput = await getMediaConvertStatus(event, endpointParams);
+        console.log(mediaConvertOutput);
 
-        return output;
+        if (mediaConvertOutput == 'Executing')
+        {
+            console.log(event);
+            return event;
+        }
+        if (mediaConvertOutput == 'Error')
+        {
+            let output = {'name': 'mediaconvert', 'status': 'Error', 'metadata': {'job_id': event.metadata.job_id, 'input_key': event.metadata.input_key} };
+            return output;
+        }
+        else
+        {
+            let output = {'name': 'mediaconvert', 'status': 'Complete', 'media': {'audio': {'s3bucket': mediaConvertOutput.s3bucket, 's3key': mediaConvertOutput.s3key}}, 'metadata': {'job_id': event.metadata.job_id, 'input_key': event.metadata.input_key} };
+            return output;
+        }
+
     }
     catch (error)
     {
@@ -22,80 +38,95 @@ exports.handler = async (event) => {
     }
 };
 
-async function getMediaConvertStatus(event)
+async function getMediaConvertEndpoint() {
+
+         // Instantiate mediaconvert
+        try
+        {
+        let mediaconvert = new AWS.MediaConvert({
+            region: process.env.AWS_REGION
+          });
+
+        // Get mediaconvert endpoint
+
+        var endpoints = await mediaconvert.describeEndpoints().promise();
+        var params = {
+            "endpoint": endpoints.Endpoints[0].Url,
+            "region": process.env.AWS_REGION
+             };
+        console.log(params);
+        return params;
+        }
+        catch(error)
+        {
+            console.log("[ERROR] failed to get MediaConvert Endpoint", error);
+		    throw error;
+        }
+}
+
+async function getMediaConvertStatus(event, endpointParams)
 {
-    console.log(event)
+    console.log(event);
     try
     {
-        var mediaconvert = new AWS.MediaConvert({
-            region: process.env.AWS_REGION
-          });
-        await mediaconvert.describeEndpoints().promise()
-        .then(data => {
 
-          // Create a new MediaConvert object with an endpoint.
-          mediaconvert = new AWS.MediaConvert({
-            endpoint: data.Endpoints[0].Url,
-            region: process.env.AWS_REGION
+       // Get setup new mediaconvert object with params from getMediaConvertEndpoint
+
+        let mediaconvert = new AWS.MediaConvert({
+            endpoint: endpointParams.endpoint,
+            region: endpointParams.region
           });
 
-          let params = {
-            Id: event.configuration.mediaconvert.job_id
+       var id = event.metadata.job_id;
+
+       var params = {
+            Id: id
           };
 
+       var response = await mediaconvert.getJob(params).promise();
 
-           return mediaconvert.getJob(params).promise();
+       console.log(response);
 
-        })
-        .then(data => {
-          console.log(data)
-          event.status = data.Job.Status;
+       if (response.Job.Status == 'IN_PROGRESS' || response.Job.Status == 'PROGRESSING')
+       {
+          return 'Executing';
+       }
 
-          if (data.Job.Status == 'Complete')
-          {
+       if (response.Job.Status == 'COMPLETE')
+       {
+          var uri = response.Job.Settings.OutputGroups[0].OutputGroupSettings.FileGroupSettings.Destination;
 
+          console.log(uri);
+          console.log(response.Job.Settings.OutputGroups[0].OutputGroupSettings.FileGroupSettings);
+          console.log(response.Job.Settings.OutputGroups[0].OutputGroupSettings);
+          console.log(response.Job.Settings.OutputGroups[0]);
+          console.log(response.Job.Settings.OutputGroups);
 
-              var uri = data.Job.Settings.OutputGroups[0].OutputGroupSettings.FileGroupSettings.Destination;
+          // Need to clean this up and find a better way to get the output key
 
-              console.log(uri);
-              console.log(data.Job.Settings.OutputGroups[0].OutputGroupSettings.FileGroupSettings);
-              console.log(data.Job.Settings.OutputGroups[0].OutputGroupSettings);
-              console.log(data.Job.Settings.OutputGroups[0]);
-              console.log(data.Job.Settings.OutputGroups);
+          var split_uri = uri.split("/");
+          var bucket = split_uri[2];
+          var folder = split_uri[3];
 
-              // Need to clean this up and find a better way to get the output key
+          var input_file = event.metadata.input_key;
+          var input_file_split = input_file.split("/");
+          var file_name = input_file_split[1];
+          var file_name_split = file_name.split(".");
+          var name = file_name_split[0];
 
-              var split_uri = uri.split("/");
-              var bucket = split_uri[2];
-              var folder = split_uri[3];
-
-              var input_file = event.input.media.video.s3key;
-              var input_file_split = input_file.split("/");
-              var file_name = input_file_split[1];
-              var file_name_split = file_name.split(".");
-              var name = file_name_split[0];
-
-              var extension = data.Job.Settings.OutputGroups[0].Outputs[0].Extension;
-              var modifier = data.Job.Settings.OutputGroups[0].Outputs[0].NameModifier;
+          var extension = response.Job.Settings.OutputGroups[0].Outputs[0].Extension;
+          var modifier = response.Job.Settings.OutputGroups[0].Outputs[0].NameModifier;
 
 
-              var key = folder + "/" + name + modifier + "." + extension;
+          var key = folder + "/" + name + modifier + "." + extension;
 
-              var output = {
-                             "name": "mediaconvert",
-                             "media": {
-                                 "audio":
-                                   {
-                                     "s3bucket": bucket,
-                                     "s3key": key
-                                    }
-                               },
-                               "status": "Complete",
-                               "message": "No errors"
-                            };
+          return {'s3bucket': bucket, 's3key': key};
           }
+       if (response.Job.Status == 'ERROR')
+       {
+          return 'Error';
+       }
 
-        })
     }
     catch(error)
     {

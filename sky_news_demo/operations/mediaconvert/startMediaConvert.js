@@ -5,15 +5,21 @@ var AWS = require("aws-sdk");
  */
 
 exports.handler = async (event) => {
-    
+
     console.log('[INFO] got event: %j', event);
-    
+
     try
     {
-        await startMediaConvert(event); 
-        event.status = 'Executing';
-        console.log(event)
-        return event;
+
+       var endpointParams = await getMediaConvertEndpoint();
+       var mediaconvertResponse = await startMediaConvert(event, endpointParams);
+
+       console.log('Response', mediaconvertResponse)
+
+       var output = {"name": "mediaconvert", "status": "Executing", "metadata": {"job_id": mediaconvertResponse.job_id, "input_key": event.input.media.video.s3key } };
+       console.log(output)
+       return output
+
     }
     catch (error)
     {
@@ -22,10 +28,39 @@ exports.handler = async (event) => {
     }
 };
 
-async function startMediaConvert(event)
+
+async function getMediaConvertEndpoint() {
+
+         // Instantiate mediaconvert
+        try
+        {
+        let mediaconvert = new AWS.MediaConvert({
+            region: process.env.AWS_REGION
+          });
+
+        // Get mediaconvert endpoint
+
+        var endpoints = await mediaconvert.describeEndpoints().promise()
+        var params = {
+            "endpoint": endpoints.Endpoints[0].Url,
+            "region": process.env.AWS_REGION
+             }
+        console.log(params)
+        return params
+        }
+        catch(error)
+        {
+            console.log("[ERROR] failed to get MediaConvert Endpoint", error);
+		    throw error;
+        }
+}
+
+
+
+async function startMediaConvert(event, params)
 {
     console.log(event)
-    try 
+    try
     {
         let destination = "s3://" + event.input.media.video.s3bucket + "/" + "audio" + "/";
         let fileInput = "s3://" + event.input.media.video.s3bucket + "/" + event.input.media.video.s3key;
@@ -98,24 +133,22 @@ async function startMediaConvert(event)
             }
         };
 
+        // Get setup new mediaconvert object with params from getMediaConvertEndpoint
+
         let mediaconvert = new AWS.MediaConvert({
-            region: process.env.AWS_REGION
+            endpoint: params.endpoint,
+            region: params.region
           });
-    
-        await mediaconvert.describeEndpoints().promise()
-            .then(data => {
-                console.log(data)
-                mediaconvert = new AWS.MediaConvert({
-                endpoint: data.Endpoints[0].Url,
-                region: process.env.AWS_REGION
-              });
-              console.log('We are starting mediaconvert')
-              return mediaconvert.createJob(MediaConvertParams).promise();
-            })
-            .then(data => {
-              console.log(data)
-              event.configuration.mediaconvert.job_id = data.Job.Id
-            })
+
+
+        // Start mediaconvert job
+
+        console.log('We are starting mediaconvert')
+        var response = await mediaconvert.createJob(MediaConvertParams).promise()
+        console.log('Response from mediaconvert', response)
+
+        return {"job_id": response.Job.Id}
+
     }
     catch(error)
     {

@@ -362,94 +362,79 @@ Resources:
       StateMachineName: "skyPreprocessStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
-          "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.configuration.mediaconvert.mediaType",
-                  "StringEquals": "video",
-                  "Next": "Media Convert Enabled?"
-                }
-              ],
-              "Default": "Media Convert Not Started"
-            },
-            "Media Convert Enabled?": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.configuration.mediaconvert.enabled",
-                  "BooleanEquals": true,
-                  "Next": "Start MediaConvert"
-                }
-              ],
-              "Default": "Media Convert Not Started"
-            },
-            "Media Convert Not Started": {
-              "Type": "Succeed"
-            },
-            "Start MediaConvert": {
-              "Type": "Task",
-              "Resource": "${skyStartMediaConvertFunction.Arn}",
-              "InputPath": "$",
-              "ResultPath": "$",
-              "Next": "Did MediaConvert Start"
-            },
-            "Did MediaConvert Start": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "Executing",
-                  "Next": "MediaConvert Wait"
-                }
-              ],
-              "Default": "Media Convert Failed"
-            },
-            "MediaConvert Wait": {
-              "Type": "Wait",
-              "Seconds": 30,
-              "Next": "Get MediaConvert Status"
-            },
-            "Get MediaConvert Status": {
-              "Type": "Task",
-              "Resource": "${skyCheckMediaConvertFunction.Arn}",
-              "InputPath": "$",
-              "ResultPath": "$",
-              "Next": "Did MediaConvert Complete",
-              "Catch": [
-                {
-                  "ErrorEquals": [
-                    "Error"
-                  ],
-                  "Next": "Media Convert Failed"
-                }
-              ]
-            },
-            "Did MediaConvert Complete": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "FAILED",
-                  "Next": "Media Convert Failed"
-                },
-                {
-                  "Variable": "$.status",
-                  "StringEquals": "COMPLETE",
-                  "Next": "Media Convert Succeeded"
-                }
-              ],
-              "Default": "MediaConvert Wait"
-            },
-            "Media Convert Failed": {
-              "Type": "Fail"
-            },
-            "Media Convert Succeeded": {
-              "Type": "Succeed"
-            }
-          }
+        	"StartAt": "Is Type?",
+        	"States": {
+        		"Is Type?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.mediaconvert.mediaType",
+        				"StringEquals": "video",
+        				"Next": "Media Convert Enabled?"
+        			}],
+        			"Default": "Media Convert Not Started"
+        		},
+        		"Media Convert Enabled?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.mediaconvert.enabled",
+        				"BooleanEquals": true,
+        				"Next": "Start MediaConvert"
+        			}],
+        			"Default": "Media Convert Not Started"
+        		},
+        		"Media Convert Not Started": {
+        			"Type": "Succeed"
+        		},
+        		"Start MediaConvert": {
+        			"Type": "Task",
+        			"Resource": "${skyStartMediaConvertFunction.Arn}",
+        			"ResultPath": "$.outputs",
+        			"Next": "Did MediaConvert Start"
+        		},
+        		"Did MediaConvert Start": {
+        			"Type": "Choice",
+        			"InputPath": "$.outputs",
+        			"Choices": [{
+        				"Variable": "$.status",
+        				"StringEquals": "Executing",
+        				"Next": "MediaConvert Wait"
+        			}],
+        			"Default": "Media Convert Failed"
+        		},
+        		"MediaConvert Wait": {
+        			"Type": "Wait",
+        			"Seconds": 5,
+        			"Next": "Get MediaConvert Status"
+        		},
+        		"Get MediaConvert Status": {
+        			"Type": "Task",
+        			"Resource": "${skyCheckMediaConvertFunction.Arn}",
+        			"Next": "Did MediaConvert Complete",
+        			"Catch": [{
+        				"ErrorEquals": ["Error"],
+        				"Next": "Media Convert Failed"
+        			}]
+        		},
+        		"Did MediaConvert Complete": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.status",
+        				"StringEquals": "Error",
+        				"Next": "Media Convert Failed"
+        			}, {
+        				"Variable": "$.status",
+        				"StringEquals": "Complete",
+        				"Next": "Media Convert Succeeded"
+        			}],
+        			"Default": "MediaConvert Wait"
+        		},
+        		"Media Convert Failed": {
+        			"Type": "Fail"
+        		},
+        		"Media Convert Succeeded": {
+        			"Type": "Succeed"
+        		}
+        	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
 
