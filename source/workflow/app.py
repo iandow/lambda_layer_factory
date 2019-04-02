@@ -85,7 +85,8 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         response = execution_table.get_item(
             Key={
                 'id': workflow_execution_id
-            })
+            },
+            ConsistentRead=True)
         
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -177,13 +178,11 @@ def complete_stage_execution(trigger, status, outputs, workflow_execution_id):
         # Save the new stage and workflow status
         execution_table.put_item(Item=workflow_execution)
         
-        # Queue the next stage for execution
+        # Get the next stage for execution
         if status == STAGE_STATUS_COMPLETE:
             workflow_execution = start_next_stage_execution(
                 "workflow", workflow_execution)
-        
-        # Save the workflow status
-        execution_table.put_item(Item=workflow_execution)
+             
 
     except Exception as e:
 
@@ -204,7 +203,8 @@ def start_next_stage_execution(trigger, workflow_execution):
     try:
         print("START NEXT STAGE")
 
-        print(workflow_execution)
+        execution_table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
+
         current_stage = workflow_execution["current_stage"]
 
         if "End" in workflow_execution["workflow"]["Stages"][current_stage]:
@@ -212,6 +212,8 @@ def start_next_stage_execution(trigger, workflow_execution):
             if workflow_execution["workflow"]["Stages"][current_stage]["End"] == True:
                 workflow_execution["current_stage"] = "End"
                 workflow_execution["status"] = WORKFLOW_STATUS_COMPLETE
+
+            execution_table.put_item(Item=workflow_execution)
 
         elif "Next" in workflow_execution["workflow"]["Stages"][current_stage]:
             current_stage = workflow_execution["current_stage"] = workflow_execution[
@@ -236,19 +238,26 @@ def start_next_stage_execution(trigger, workflow_execution):
                     }
                 }
 
+                # IMPORTANT: update the workflow_execution before queueing the work item...the 
+                # queued workitem must match the current stage when we start stage execution.
+                execution_table.put_item(Item=workflow_execution)
+
                 print("QUEUE workitem:")
                 print(json.dumps(workitem))
                 response = SQS_CLIENT.send_message(
                     QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
                     MessageBody=json.dumps(workitem)
                 )
+
+
             except Exception as e:
 
                 workflow_execution["status"] = WORKFLOW_STATUS_ERROR
                 logger.info("Exception {}".format(e))
+
                 #raise ChaliceViewError(
                 raise ValueError(
-                    "Exception: unable to queue work item '%s'" % e)
+                    "Exception: unable to queue work item '%s'" % e)    
 
     except Exception as e:
         workflow_execution["status"] = WORKFLOW_STATUS_ERROR
@@ -256,4 +265,6 @@ def start_next_stage_execution(trigger, workflow_execution):
         #raise ChaliceViewError(
         raise ValueError(
             "Exception: '%s'" % e)
+
+    logger.info("workflow_execution: {}".format(json.dumps(workflow_execution)))
     return workflow_execution

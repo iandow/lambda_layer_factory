@@ -774,7 +774,8 @@ def create_workflow_execution(trigger, workflow_execution):
         response = workflow_table.get_item(
             Key={
                 'name': workflow_execution['name']
-            })
+            },
+            ConsistentRead=True)
 
         # lookup workflow defintiion we need to execute
         if "Item" in response:
@@ -946,7 +947,8 @@ def get_stage_for_execution(trigger, workflow_execution_id):
         response = execution_table.get_item(
             Key={
                 'id': workflow_execution_id
-            })
+            },
+            ConsistentRead=True)
         # lookup workflow defintiion we need to execute
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -955,8 +957,13 @@ def get_stage_for_execution(trigger, workflow_execution_id):
             raise ChaliceViewError(
                 "Exception: workflow execution id '%s' not found" % workflow_execution_id)
 
+        logger.info("workflow_execution {}".format(json.dumps(workflow_execution)))
+        
         # Sanity check the workflow state
         if (workflow_execution["current_stage"] == "End") or (workflow_execution["status"] in [awsmas.WORKFLOW_STATUS_ERROR, awsmas.WORKFLOW_STATUS_COMPLETE]):
+            
+            logger.info("Error path: workflow_execution_id {} current stage = {} status = {}".format(workflow_execution_id, workflow_execution["current_stage"], workflow_execution["status"]))
+            
             raise ChaliceViewError(
                 "Exception: workflow execution id '%s' is already complete" % workflow_execution_id)
 
@@ -989,7 +996,8 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
         response = execution_table.get_item(
             Key={
                 'id': workflow_execution_id
-            })
+            },
+            ConsistentRead=True)
         # lookup workflow defintiion we need to execute
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -1065,7 +1073,8 @@ def get_workflow_execution_by_id(id):
     response = table.get_item(
         Key={
             'id': id
-        })
+        },
+        ConsistentRead=True)
 
     if "Item" in response:
         workflow_execution = response["Item"]
@@ -1093,7 +1102,8 @@ def delete_workflow_execution(id):
         response = table.get_item(
             Key={
                 'id': id
-            })
+            },
+            ConsistentRead=True)
         
         if "Item" in response:
             workflow_execution = response["Item"]
