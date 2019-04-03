@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# # Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """Convert SAM templates to CloudFormation templates.
 Known limitations: cannot transform CodeUri pointing at local directory.
 Usage:

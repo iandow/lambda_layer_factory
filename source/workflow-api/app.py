@@ -1,5 +1,8 @@
+# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 from chalice import Chalice
-from chalice import NotFoundError, BadRequestError, ChaliceViewError, Response
+from chalice import NotFoundError, BadRequestError, ChaliceViewError, Response, ConflictError
 import boto3
 from boto3 import resource
 from botocore.client import ClientError
@@ -37,9 +40,7 @@ logger.setLevel(logging.INFO)
 
 WORKFLOW_TABLE_NAME = os.environ["WORKFLOW_TABLE_NAME"]
 STAGE_TABLE_NAME = os.environ["STAGE_TABLE_NAME"]
-#STAGE_TABLE_NAME = "mas-workflowStage"
 OPERATION_TABLE_NAME = os.environ["OPERATION_TABLE_NAME"]
-#OPERATION_TABLE_NAME = "mas-workflowOperation"
 WORKFLOW_EXECUTION_TABLE_NAME = os.environ["WORKFLOW_EXECUTION_TABLE_NAME"]
 STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 STAGE_EXECUTION_ROLE = os.environ["STAGE_EXECUTION_ROLE"]
@@ -129,6 +130,7 @@ def create_operation():
         200: The operation was created successfully.
         400: Bad Request - the input state machine ARN was not found or the 
              state machine ASL is invalid
+        409: Conflict - an operation with the same name already exists
         500: Internal server error 
     """
     table_name = OPERATION_TABLE_NAME
@@ -156,7 +158,7 @@ def create_operation():
         operation['id'] = str(uuid.uuid4())
         operation['createTime'] = int(time.time())
 
-        # FIXME get rid of opertion as key in this
+        # FIXME get rid of opertion name as key in this
         if "stateMachineArn" in operation[name]:
             logger.info("lookup state machine for operation")
             response = SFN_CLIENT.describe_state_machine(
@@ -166,8 +168,21 @@ def create_operation():
             operation["stateMachineASL"] = response["definition"]
             logger.info(response)
 
-        table.put_item(Item=operation)
+        table.put_item(
+            Item=operation, 
+            ConditionExpression="attribute_not_exists(#operation_name)",
+            ExpressionAttributeNames={
+                    '#operation_name': "name"
+                })
 
+    except ClientError as e:
+        # Ignore the ConditionalCheckFailedException, bubble up
+        # other exceptions.
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            raise ConflictError("Operation with name {} already exists".format(name))
+        else:
+            raise
+        
     except SFN_CLIENT.exceptions.NotFoundException as e:
         logger.error("SFN_CLIENT.exceptions.NotFoundException")
         raise BadRequestError("State machine ARN {} not found. Error: {}"
@@ -183,6 +198,11 @@ def create_operation():
 
 @app.route('/workflow/operation', cors=True, methods=['PUT'])
 def update_operation():
+    """ Update n operation NOT IMPLEMENTED 
+
+    XXX
+
+    """
     operation = {"Message": "Update on stages in not implemented"}
     return operation
 
@@ -237,6 +257,47 @@ def get_operation_by_name(name):
 
     return operation
 
+@app.route('/workflow/operation/{name}', cors=True, methods=['DELETE'])
+def delete_operation(name):
+    """ Delete a an operation
+
+    Returns:  
+
+    Raises:
+        200: Operation deleted sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(OPERATION_TABLE_NAME)
+
+    try: 
+        
+        operation = None
+        response = table.get_item(
+            Key={
+                'name': name
+            },
+            ConsistentRead=True)
+        
+        if "Item" in response:
+            operation = response["Item"]
+        else:
+            raise NotFoundError(
+                "Exception: operation '%s' not found" % id)
+
+        response = table.delete_item(
+            Key={
+                'name': name
+            })      
+    
+    except Exception as e:
+
+        operation = None
+        logger.info("Exception {}".format(e))
+        raise ChaliceViewError("Exception: '%s'" % e)
+    
+    return operation
+
 
 ################################################################################################
 #   ____  _
@@ -285,6 +346,7 @@ def create_stage():
     Raises:
         200: The stage was created successfully.
         400: Bad Request - one of the input state machines was not found or was invalid
+        409: Conflict
         500: Internal server error 
     """
     try:
@@ -302,6 +364,17 @@ def create_stage():
 
         name = stage["name"]
         stage["Resource"] = STAGE_EXECUTION_QUEUE_URL
+
+        # Check if this stage already exists
+        response = stage_table.get_item(
+            Key={
+                'name': name
+            },
+            ConsistentRead=True)
+        
+        if "Item" in response:
+            raise ConflictError(
+                "A stage with the name '%s' already exists" % name)
 
         # Build the stage state machine.  The stage machine consists of a parallel state with 
         # branches for each operator and a call to the stage completion lambda at the end.  
@@ -349,34 +422,6 @@ def create_stage():
         
         stage["configuration"] = configuration
 
-        # FIXME: Build role for stage state machine
-        # stageAssumeRolePolicyDoc = {
-        #     "Version": "2012-10-17",
-        #     "Statement": [
-        #         {
-        #         "Effect": "Allow",
-        #         "Principal": {
-        #             "Service": "states.amazonaws.com"
-        #         },
-        #         "Action": "sts:AssumeRole"
-        #         }
-        #     ]
-        #     }
-        
-        # stageRole = {
-        #     "Version": "2012-10-17",
-        #     "Statement": []
-        # }
-
-        # for op in stage["operations"]:
-        #     # lookup base workflow
-        #     operation = get_operation_by_name(op)
-        #     #logger.info(json.dumps(operation))
-
-        #     opRole = op["stateMachineExecutionRoleArn"]
-        #     opRoleName = opRole.split('/')[-1]
-        #     opRoleDefinition = IAM_RESOURCE.Role(opRoleName)
-
         # Build stage
         response = SFN_CLIENT.create_state_machine(
             name=name,
@@ -399,6 +444,11 @@ def create_stage():
 
 @app.route('/workflow/stage', cors=True, methods=['PUT'])
 def update_stage():
+    """ Update a stage NOT IMPLEMENTED 
+
+    XXX
+
+    """
     stage = {"message":"NOT IMPLEMENTED"}
     return stage
 
@@ -451,6 +501,55 @@ def get_stage_by_name(name):
         raise NotFoundError(
             "Exception: stage '%s' not found" % name)
 
+    return stage
+
+@app.route('/workflow/stage/{name}', cors=True, methods=['DELETE'])
+def delete_stage(name):
+    """ Delete a stage
+
+    Returns:  
+
+    Raises:
+        200: Stage deleted sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
+
+    try: 
+        
+        stage = None
+        response = table.get_item(
+            Key={
+                'name': name
+            },
+            ConsistentRead=True)
+        
+        if "Item" in response:
+            stage = response["Item"]
+        else:
+            raise NotFoundError(
+                "Stage '%s' not found" % name)
+
+        # Delete the stage state machine 
+        response = SFN_CLIENT.delete_state_machine(
+            stateMachineArn=stage["stateMachineArn"]
+        )
+
+        response = table.delete_item(
+            Key={
+                'name': name
+            })      
+    
+    except NotFoundError as e:
+        raise
+        
+    except Exception as e:
+
+        stage = None
+        logger.info("Exception {}".format(e))
+        raise ChaliceViewError("Exception: '%s'" % e)
+    
     return stage
 
 ###############################################################################
@@ -555,8 +654,22 @@ def create_workflow():
             s = get_stage_by_name(name)
             stage.update(s)
 
-        workflow_table.put_item(Item=workflow)
+        
+        workflow_table.put_item(
+            Item=workflow, 
+            ConditionExpression="attribute_not_exists(#workflow_name)",
+            ExpressionAttributeNames={
+                    '#workflow_name': "name"
+                })
 
+    except ClientError as e:
+        # Ignore the ConditionalCheckFailedException, bubble up
+        # other exceptions.
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            raise ConflictError("Workflow with name {} already exists".format(name))
+        else:
+            raise
+    
     except Exception as e:
         logger.info("Exception {}".format(e))
         workflow = None
@@ -567,6 +680,11 @@ def create_workflow():
 
 @app.route('/workflow', cors=True, methods=['PUT'])
 def update_workflow():
+    """ Update a workflow NOT IMPLEMENTED 
+
+    XXX
+
+    """
     stage = {"message":"UPDATE WORKFLOW NOT IMPLEMENTED"}
     return stage
 
@@ -651,6 +769,50 @@ def get_workflow_configuration_by_name(name):
             "Exception: workflow '%s' not found" % name)
 
     return configuration
+
+@app.route('/workflow/{name}', cors=True, methods=['DELETE'])
+def delete_workflow(name):
+    """ Delete a workflow
+
+    Returns:  
+
+    Raises:
+        200: Workflow deleted sucessfully.
+        404: Not found
+        500: Internal server error 
+    """
+    table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+
+    try: 
+        
+        workflow = None
+        response = table.get_item(
+            Key={
+                'name': name
+            },
+            ConsistentRead=True)
+        
+        if "Item" in response:
+            workflow = response["Item"]
+        else:
+            raise NotFoundError(
+                "Workflow '%s' not found" % name)  
+
+        response = table.delete_item(
+            Key={
+                'name': name
+            })   
+    
+    except NotFoundError as e:
+        raise
+        
+    except Exception as e:
+
+        workflow = None
+        logger.info("Exception {}".format(e))
+        raise ChaliceViewError("Exception: '%s'" % e)
+    
+    return workflow
 
 
 # ================================================================================================
@@ -753,48 +915,21 @@ def create_workflow_execution_s3(event, context):
 
 
 def create_workflow_execution(trigger, workflow_execution):
-    workflow_table_name = WORKFLOW_TABLE_NAME
-    execution_table_name = WORKFLOW_EXECUTION_TABLE_NAME
+
+    execution_table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
 
     try:
-        workflow_table = DYNAMO_RESOURCE.Table(workflow_table_name)
-        execution_table = DYNAMO_RESOURCE.Table(execution_table_name)
+        
+        name = workflow_execution["name"]
+        input = workflow_execution["input"]
+        configuration = workflow_execution["configuration"] if "configuration" in workflow_execution  else {}
+        
+        workflow_execution = initialize_workflow_execution(trigger, name, input, configuration)
 
-        workflow_execution['id'] = str(uuid.uuid4())
-        workflow_execution["trigger"] = trigger
-        workflow_execution["current_stage"] = None
-
-        workflow_execution["globals"] = {"media": {}, "metadata": {}}
-        workflow_execution["globals"].update(workflow_execution["input"])  
-
-        if "configuration" not in workflow_execution:
-            workflow_execution["configuration"] = {}
-
-        # lookup base workflow
-        response = workflow_table.get_item(
-            Key={
-                'name': workflow_execution['name']
-            },
-            ConsistentRead=True)
-
-        # lookup workflow defintiion we need to execute
-        if "Item" in response:
-            workflow = response["Item"]
-        else:
-            workflow_execution["workflow"] = None
-            raise ChaliceViewError(
-                "Exception: workflow id '%s' not found" % workflow_execution["workflowId"])
-
-        # FIXME - construct stages from stage table at runtime to get latest defintion
-
-        workflow_execution["workflow"] = initialize_workflow_execution(
-            workflow, workflow_execution["configuration"])
-
-        workflow_execution = start_first_stage_execution(
-            "workflow", workflow_execution)
-
-        logger.info(json.dumps(workflow))
         execution_table.put_item(Item=workflow_execution)
+
+        workflow_execution = start_first_stage_execution("workflow", workflow_execution)        
+
 
     except Exception as e:
         logger.info("Exception {}".format(e))
@@ -802,63 +937,90 @@ def create_workflow_execution(trigger, workflow_execution):
 
     return workflow_execution
 
-def initialize_workflow_execution(workflow, workflow_configuration):
-    print(workflow_configuration)
-    for stage, configuration in workflow_configuration.items():
+def initialize_workflow_execution(trigger, name, input, configuration):
+    
+    workflow_table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
+
+    workflow_execution = {}
+    workflow_execution["id"] = str(uuid.uuid4())
+    workflow_execution["trigger"] = trigger
+    workflow_execution["current_stage"] = None
+    workflow_execution["globals"] = {"media": {}, "metadata": {}}
+    workflow_execution["globals"].update(input)  
+    workflow_execution["configuration"] = configuration
+
+    # lookup base workflow
+    response = workflow_table.get_item(
+        Key={
+            'name': name
+        },
+        ConsistentRead=True)
+
+    if "Item" in response:
+        workflow = response["Item"]
+    else:
+        raise ChaliceViewError(
+            "Exception: workflow id '%s' not found" % workflow_execution["workflowId"])
+
+    # Initialize workflow stages for execution
+    for stage, config in configuration.items():
         if stage in workflow["Stages"]:
-            workflow["Stages"][stage]["Configuration"] = configuration
+            workflow["Stages"][stage]["Configuration"] = config
+            
         else:
-            workflow = None
+            workflow_execution["workflow"] = None
             raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
 
     for stage in workflow["Stages"]:
         workflow["Stages"][stage]["status"] = awsmas.STAGE_STATUS_NOT_STARTED
         workflow["Stages"][stage]["metrics"] = {}
+        workflow["Stages"][stage]["name"] = stage
+        workflow["Stages"][stage]["workflow_execution_id"] = workflow_execution["id"]
+        if "metadata" not in workflow["Stages"][stage]:
+            workflow["Stages"][stage]["metadata"] = {}
 
-    return workflow
+    workflow_execution["workflow"] = workflow
+    
+    # initialize top level workflow_execution state from the workflow
+    workflow_execution["status"] = awsmas.WORKFLOW_STATUS_STARTED
+    workflow_execution["current_stage"] = current_stage = workflow["StartAt"]
+
+    # setup the current stage for execution
+    workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
+    # workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
+    #    time.time())
+    workflow_execution["workflow"]["Stages"][current_stage]["status"] = awsmas.STAGE_STATUS_STARTED
+
+    return workflow_execution
 
 def start_first_stage_execution(trigger, workflow_execution):
 
+    current_stage = workflow_execution["current_stage"] 
+
     try:
-        logger.info("STARTING FIRST STAGE")
+        logger.info(
+            "Starting next stage for workflow_execution_id:"+workflow_execution["id"])
+        logger.info(json.dumps(
+            workflow_execution["workflow"]["Stages"][current_stage]))
 
-        logger.info(workflow_execution)
-        workflow_execution["status"] = awsmas.WORKFLOW_STATUS_STARTED
-        current_stage = workflow_execution["workflow"]["StartAt"]
-        workflow_execution["current_stage"] = current_stage
+        workitem = {
+            "workflow_execution_id": workflow_execution["id"],
+            "stage": workflow_execution["workflow"]["Stages"][current_stage]
+        }
 
-        workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
-        # workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
-        #    time.time())
-        workflow_execution["workflow"]["Stages"][current_stage]["status"] = awsmas.STAGE_STATUS_STARTED
+        logger.info("QUEUE workitem:")
+        logger.info(json.dumps(workitem))
 
-        try:
-            logger.info(
-                "Starting next stage for workflow_execution_id:"+workflow_execution["id"])
-            logger.info(json.dumps(
-                workflow_execution["workflow"]["Stages"][current_stage]))
-
-            workitem = {
-                "workflow_execution_id": workflow_execution["id"],
-                "stage": workflow_execution["workflow"]["Stages"][current_stage]
-            }
-
-            logger.info("QUEUE workitem:")
-            logger.info(json.dumps(workitem))
-
-            response = SQS_CLIENT.send_message(
-                QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
-                MessageBody=json.dumps(workitem)
-            )
-        except Exception as e:
-
-            workflow_execution["status"] = awsmas.WORKFLOW_STATUS_ERROR
-            logger.info("Exception {}".format(e))
+        response = SQS_CLIENT.send_message(
+            QueueUrl=workflow_execution["workflow"]["Stages"][current_stage]["Resource"],
+            MessageBody=json.dumps(workitem)
+        )
 
     except Exception as e:
         workflow_execution["status"] = awsmas.WORKFLOW_STATUS_ERROR
         logger.info("Exception {}".format(e))
         raise ChaliceViewError("Exception: '%s'" % e)
+    
     return workflow_execution
 
 # @app.on_sqs_message(queue='Analysis', batch_size=1)
@@ -901,20 +1063,8 @@ def execute_stage(input_stage):
     try:
         workflow_execution_id = input_stage["workflow_execution_id"]
 
-        stage = get_stage_for_execution("workflow", workflow_execution_id)
+        stage = input_stage["stage"]
         stage["workflow_execution_id"] = workflow_execution_id
-
-        ## FIXME - temporary - reverse the opeator name and configuration key to make our demo work
-        # if "configuration" in stage:
-        #     for k, v in stage["configuration"].items():
-        #         stage[k]= {}
-        #         stage[k]["configuration"] = v
-
-        # FIXME check for duplicate SQS messages - SQS messages have AT LEAST ONCE delivery semantics
-        # we only want to process an operation once since it could be expensive.
-        # State machine will give error when executing same stage with same execution id, maybe use this?:
-        # An error occurred (ExecutionAlreadyExists) when calling the StartExecution operation: Execution Already Exists: 'arn:aws:states:us-east-1:526662735483:execution:media-analysis-preprocess-state-machine-1:1c2b2471-a451-49b5-a6f7-12618b955d74
-        #
 
         logger.info(stage)
         response = SFN_CLIENT.start_execution(
@@ -939,53 +1089,6 @@ def execute_stage(input_stage):
     return stage
 
 
-def get_stage_for_execution(trigger, workflow_execution_id):
-
-    try:
-        execution_table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
-        # lookup the workflow
-        response = execution_table.get_item(
-            Key={
-                'id': workflow_execution_id
-            },
-            ConsistentRead=True)
-        # lookup workflow defintiion we need to execute
-        if "Item" in response:
-            workflow_execution = response["Item"]
-        else:
-            workflow_execution = None
-            raise ChaliceViewError(
-                "Exception: workflow execution id '%s' not found" % workflow_execution_id)
-
-        logger.info("workflow_execution {}".format(json.dumps(workflow_execution)))
-        
-        # Sanity check the workflow state
-        if (workflow_execution["current_stage"] == "End") or (workflow_execution["status"] in [awsmas.WORKFLOW_STATUS_ERROR, awsmas.WORKFLOW_STATUS_COMPLETE]):
-            
-            logger.info("Error path: workflow_execution_id {} current stage = {} status = {}".format(workflow_execution_id, workflow_execution["current_stage"], workflow_execution["status"]))
-            
-            raise ChaliceViewError(
-                "Exception: workflow execution id '%s' is already complete" % workflow_execution_id)
-
-        # if (workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]] != )
-        stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
-        
-        # Sanity check the stage state
-        if stage["status"] in [awsmas.STAGE_STATUS_ERROR, awsmas.STAGE_STATUS_COMPLETE]:
-            raise ChaliceViewError(
-                "Exception: workflow execution id '%s' is already complete" % workflow_execution_id)
-
-        stage['name'] = workflow_execution["current_stage"]
-        stage["workflow_execution_id"] = workflow_execution_id
-
-    except Exception as e:
-
-        stage = None
-        logger.info("Exception {}".format(e))
-        raise ChaliceViewError("Exception: '%s'" % e)
-
-    return stage
-
 
 def start_stage_execution(trigger, step_function_execution_arn, workflow_execution_id):
     execution_table_name = WORKFLOW_EXECUTION_TABLE_NAME
@@ -998,6 +1101,7 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
                 'id': workflow_execution_id
             },
             ConsistentRead=True)
+        
         # lookup workflow defintiion we need to execute
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -1010,13 +1114,22 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
         stage['name'] = workflow_execution["current_stage"]
         stage['status'] = awsmas.STAGE_STATUS_EXECUTING
         stage['step_function_execution_arn'] = step_function_execution_arn
-        if "metadata" not in stage:
-            stage["metadata"] = {}
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]
                                                  ] = stage
 
-        execution_table.put_item(Item=workflow_execution)
+        response = execution_table.update_item(
+            Key={
+                'id': workflow_execution_id
+            },
+            UpdateExpression='SET workflow.Stages.#stage = :stage',
+            ExpressionAttributeNames={
+                '#stage': workflow_execution["current_stage"]
+            },
+            ExpressionAttributeValues={
+                ':stage': stage
+            }
+        )
 
     except Exception as e:
 
@@ -1029,6 +1142,11 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
 
 @app.route('/workflow/execution', cors=True, methods=['PUT'])
 def update_workflow_execution():
+    """ Update a workflow execution NOT IMPLEMENTED 
+
+    XXX
+
+    """
     stage = {"message":"UPDATE WORKFLOW EXECUTION NOT IMPLEMENTED"}
     return stage
 
