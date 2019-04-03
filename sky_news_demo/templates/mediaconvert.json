@@ -1,0 +1,102 @@
+{
+	"StartAt": "Is mediaconvert Enabled?",
+	"States": {
+		"Is mediaconvert Enabled?": {
+			"Type": "Choice",
+			"Choices": [{
+				"Variable": "$.configuration.mediaconvert.enabled",
+                "BooleanEquals": true,
+				"Next": "Is mediaconvert Media Type?"
+			}],
+			"Default": "mediaconvert Not Started"
+		},
+		"Is mediaconvert Media Type?": {
+			"Type": "Choice",
+			"Choices": [{
+				"Variable": "$.configuration.mediaconvert.mediaType",
+				"StringEquals": "video",
+				"Next": "Execute mediaconvert"
+			}],
+			"Default": "mediaconvert Not Started"
+		},
+		"mediaconvert Not Started": {
+			"Type": "Succeed"
+		},
+		"Execute mediaconvert": {
+			"Type": "Task",
+			"Resource": "arn:aws:lambda:us-west-2:764127651952:function:python_testing_start_mediaconvert",
+			"ResultPath": "$.outputs",
+            "OutputPath": "$.outputs",
+			"Next": "mediaconvert Wait",
+			"Retry": [ {
+   				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                "IntervalSeconds": 2,
+				"MaxAttempts": 2,
+				"BackoffRate": 2
+			}
+			],
+			"Catch": [
+            {
+               "ErrorEquals": ["States.ALL"],
+               "Next": "mediaconvert Failed",
+               "ResultPath": "$.outputs"
+            }
+			]
+		},
+		"mediaconvert Wait": {
+			"Type": "Wait",
+			"Seconds": 5,
+			"Next": "Get mediaconvert Status"
+		},
+		"Get mediaconvert Status": {
+			"Type": "Task",
+			"Resource": "arn:aws:lambda:us-west-2:764127651952:function:python_test_check_mediaconvert",
+			"Next": "Did mediaconvert Complete",
+			"Retry": [ {
+   				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                "IntervalSeconds": 2,
+				"MaxAttempts": 2,
+				"BackoffRate": 2
+			}
+			],
+			"Catch": [
+            {
+               "ErrorEquals": ["States.ALL"],
+               "Next": "mediaconvert Failed",
+               "ResultPath": "$.outputs"
+            }
+			]
+		},
+		"Did mediaconvert Complete": {
+			"Type": "Choice",
+			"Choices": [{
+					"Variable": "$.status",
+					"StringEquals": "Executing",
+					"Next": "mediaconvert Wait"
+				},
+				{
+					"Variable": "$.status",
+					"StringEquals": "Complete",
+					"Next": "mediaconvert Succeeded"
+				}
+			],
+			"Default": "mediaconvert Failed"
+		},
+		"mediaconvert Failed": {
+			"Type": "Task",
+			"Resource": "arn:aws:lambda:us-west-2:764127651952:function:python_test_operator_failed",
+            "ResultPath": "$.outputs",
+			"Retry": [ {
+   				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown"],
+                "IntervalSeconds": 2,
+				"MaxAttempts": 2,
+				"BackoffRate": 2
+			}
+			],
+            "End": true
+		},
+		"mediaconvert Succeeded": {
+			"Type": "Succeed"
+		}
+	}
+}
