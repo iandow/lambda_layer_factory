@@ -20,23 +20,6 @@ API_STAGE = "dev"
 app = Chalice(app_name=APP_NAME)
 app.debug = True
 
-# FIXME - need to pacakge this so it can be included in operation lambdas
-WORKFLOW_STATUS_STARTED = "Started"
-WORKFLOW_STATUS_ERROR = "Error"
-WORKFLOW_STATUS_COMPLETE = "Complete"
-
-STAGE_STATUS_NOT_STARTED = "Not Started"
-STAGE_STATUS_STARTED = "Started"
-STAGE_STATUS_EXECUTING = "Executing"
-STAGE_STATUS_ERROR = "Error"
-STAGE_STATUS_COMPLETE = "Complete"
-
-OPERATION_STATUS_NOT_STARTED = "Not Started"
-OPERATION_STATUS_STARTED = "Started"
-OPERATION_STATUS_EXECUTING = "Executing"
-OPERATION_STATUS_ERROR = "Error"
-OPERATION_STATUS_COMPLETE = "Complete"
-
 # Setup logging
 # Logging Configuration
 #extra = {'requestid': app.current_request.context}
@@ -62,11 +45,6 @@ STAGE_EXECUTION_QUEUE_URL = os.environ["STAGE_EXECUTION_QUEUE_URL"]
 STAGE_EXECUTION_ROLE = os.environ["STAGE_EXECUTION_ROLE"]
 COMPLETE_STAGE_LAMBDA_ARN = os.environ["COMPLETE_STAGE_LAMBDA_ARN"]
 
-# FIXME - need create stage API and custom resource to break circular dependency
-PREPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
-ANALYSIS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:analysis-state-machine"
-POSTPROCESS_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:526662735483:stateMachine:media-analysis-preprocess-state-machine-2"
-
 # DynamoDB
 DYNAMO_CLIENT = boto3.client("dynamodb")
 DYNAMO_RESOURCE = boto3.resource("dynamodb")
@@ -82,27 +60,6 @@ SQS_CLIENT = boto3.client('sqs')
 IAM_CLIENT = boto3.client('iam')
 IAM_RESOURCE = boto3.resource('iam')
 
-# Environment
-
-DEFAULT_WORKFLOW_SQS = {
-    "name": "MAS-Pipeline",
-    "StartAt": "Preprocess",
-    "Stages": {
-        "Preprocess": {
-            "Type": "Preprocess",
-            "Resource": STAGE_EXECUTION_QUEUE_URL,
-            "StateMachine": PREPROCESS_STATE_MACHINE_ARN,
-            "Next": "Analysis"
-        },
-        "Analysis": {
-            "Type": "Analysis",
-            "Resource": STAGE_EXECUTION_QUEUE_URL,
-            "StateMachine": ANALYSIS_STATE_MACHINE_ARN,
-            "End": True
-        }
-    }
-}
-
 # Helper class to convert a DynamoDB item to JSON.
 
 
@@ -112,6 +69,11 @@ class DecimalEncoder(json.JSONEncoder):
             return str(o)
         return super(DecimalEncoder, self).default(o)
 
+def checkRequiredInput(key, dict, objectname):
+    
+    if key not in dict:
+        raise BadRequestError("Key '%s' is required in '%s' input" % (
+            key, objectname))
 
 @app.route('/')
 def index():
@@ -183,6 +145,13 @@ def create_operation():
             logger.info("{} {}".format(k, v))
 
         name = k
+
+        checkRequiredInput("configuration", operation[name], "Operation Definition")
+        checkRequiredInput("stateMachineArn", operation[name], "Operation Definition")
+        checkRequiredInput("stateMachineExecutionRoleArn", operation[name], "Operation Definition")
+        checkRequiredInput("mediaType", operation[name]["configuration"], "Operation Definition Configuartion")
+        checkRequiredInput("enabled", operation[name]["configuration"], "Operation Configuration")
+
         operation["name"] = name
         operation['id'] = str(uuid.uuid4())
         operation['createTime'] = int(time.time())
@@ -327,10 +296,18 @@ def create_stage():
         logger.info(app.current_request.json_body)
 
         stage = app.current_request.json_body
+
+        checkRequiredInput("name", stage, "Stage Definition")
+        checkRequiredInput("operations", stage, "Stage Definition")
+
         name = stage["name"]
         stage["Resource"] = STAGE_EXECUTION_QUEUE_URL
 
-        # Build the stage state machine
+        # Build the stage state machine.  The stage machine consists of a parallel state with 
+        # branches for each operator and a call to the stage completion lambda at the end.  
+        # The parallel state takes a stage object as input.  Each
+        # operator returns and operatorOutput object. The outputs for each operator are 
+        # returned from the parallel state as elements of the "outputs" array.    
         stageAsl = {
             "StartAt": "Preprocess Media",
             "States": {
@@ -550,7 +527,30 @@ def create_workflow():
         workflow = app.current_request.json_body
         logger.info(json.dumps(workflow))
         #workflow["createTime"] = int(time.time())
+
+        # Validate inputs
+
+        checkRequiredInput("name", workflow, "Workflow Definition")
+        checkRequiredInput("StartAt", workflow, "Workflow Definition")
+        checkRequiredInput("Stages", workflow, "Workflow Definition")
+
+        endcount = 0
+        for name,stage in workflow["Stages"].items():
+
+            # Stage must have an End or a Next key
+            if "End" in stage and stage["End"] == True:
+                endcount += 1
+            elif "Next" in stage:  
+                pass
+            else:
+                raise BadRequestError("Stage %s must have either an 'End' or and 'Next' key" % (
+                    name))
+
+        if endcount != 1:
+            raise BadRequestError("Workflow %s must have exactly 1 'End' key within its stages" % (
+                    workflow["name"]))
         
+
         for name, stage in workflow["Stages"].items():
             s = get_stage_by_name(name)
             stage.update(s)
@@ -563,8 +563,6 @@ def create_workflow():
         raise ChaliceViewError("Exception '%s'" % e)
 
     return workflow
-
-
 
 
 @app.route('/workflow', cors=True, methods=['PUT'])
@@ -677,7 +675,7 @@ def create_workflow_execution_api():
         {
         "name":"Default",
         "input": media-object
-        "stageConfiguration": {
+        "configuration": {
             {
             "stage-name": {
                 "operations: {
@@ -767,13 +765,17 @@ def create_workflow_execution(trigger, workflow_execution):
         workflow_execution["current_stage"] = None
 
         workflow_execution["globals"] = {"media": {}, "metadata": {}}
-        workflow_execution["globals"] = workflow_execution["input"]
+        workflow_execution["globals"].update(workflow_execution["input"])  
+
+        if "configuration" not in workflow_execution:
+            workflow_execution["configuration"] = {}
 
         # lookup base workflow
         response = workflow_table.get_item(
             Key={
                 'name': workflow_execution['name']
-            })
+            },
+            ConsistentRead=True)
 
         # lookup workflow defintiion we need to execute
         if "Item" in response:
@@ -786,7 +788,7 @@ def create_workflow_execution(trigger, workflow_execution):
         # FIXME - construct stages from stage table at runtime to get latest defintion
 
         workflow_execution["workflow"] = initialize_workflow_execution(
-            workflow, workflow_execution)
+            workflow, workflow_execution["configuration"])
 
         workflow_execution = start_first_stage_execution(
             "workflow", workflow_execution)
@@ -801,21 +803,16 @@ def create_workflow_execution(trigger, workflow_execution):
     return workflow_execution
 
 def initialize_workflow_execution(workflow, workflow_configuration):
-
-    
-
+    print(workflow_configuration)
     for stage, configuration in workflow_configuration.items():
-
-        # Override default configuration with passed in configuration
-        if "stageConfiguration" in workflow_configuration:
-            if stage in workflow["Stages"]:
-                workflow["Stages"][stage]["Configuration"] = configuration
-            else:
-                workflow = None
-                raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
+        if stage in workflow["Stages"]:
+            workflow["Stages"][stage]["Configuration"] = configuration
+        else:
+            workflow = None
+            raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
 
     for stage in workflow["Stages"]:
-        workflow["Stages"][stage]["status"] = STAGE_STATUS_NOT_STARTED
+        workflow["Stages"][stage]["status"] = awsmas.STAGE_STATUS_NOT_STARTED
         workflow["Stages"][stage]["metrics"] = {}
 
     return workflow
@@ -826,14 +823,14 @@ def start_first_stage_execution(trigger, workflow_execution):
         logger.info("STARTING FIRST STAGE")
 
         logger.info(workflow_execution)
-        workflow_execution["status"] = WORKFLOW_STATUS_STARTED
+        workflow_execution["status"] = awsmas.WORKFLOW_STATUS_STARTED
         current_stage = workflow_execution["workflow"]["StartAt"]
         workflow_execution["current_stage"] = current_stage
 
         workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
         # workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
         #    time.time())
-        workflow_execution["workflow"]["Stages"][current_stage]["status"] = STAGE_STATUS_STARTED
+        workflow_execution["workflow"]["Stages"][current_stage]["status"] = awsmas.STAGE_STATUS_STARTED
 
         try:
             logger.info(
@@ -855,11 +852,11 @@ def start_first_stage_execution(trigger, workflow_execution):
             )
         except Exception as e:
 
-            workflow_execution["status"] = WORKFLOW_STATUS_ERROR
+            workflow_execution["status"] = awsmas.WORKFLOW_STATUS_ERROR
             logger.info("Exception {}".format(e))
 
     except Exception as e:
-        workflow_execution["status"] = WORKFLOW_STATUS_ERROR
+        workflow_execution["status"] = awsmas.WORKFLOW_STATUS_ERROR
         logger.info("Exception {}".format(e))
         raise ChaliceViewError("Exception: '%s'" % e)
     return workflow_execution
@@ -943,15 +940,15 @@ def execute_stage(input_stage):
 
 
 def get_stage_for_execution(trigger, workflow_execution_id):
-    execution_table_name = WORKFLOW_EXECUTION_TABLE_NAME
 
     try:
-        execution_table = DYNAMO_RESOURCE.Table(execution_table_name)
+        execution_table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
         # lookup the workflow
         response = execution_table.get_item(
             Key={
                 'id': workflow_execution_id
-            })
+            },
+            ConsistentRead=True)
         # lookup workflow defintiion we need to execute
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -960,8 +957,24 @@ def get_stage_for_execution(trigger, workflow_execution_id):
             raise ChaliceViewError(
                 "Exception: workflow execution id '%s' not found" % workflow_execution_id)
 
+        logger.info("workflow_execution {}".format(json.dumps(workflow_execution)))
+        
+        # Sanity check the workflow state
+        if (workflow_execution["current_stage"] == "End") or (workflow_execution["status"] in [awsmas.WORKFLOW_STATUS_ERROR, awsmas.WORKFLOW_STATUS_COMPLETE]):
+            
+            logger.info("Error path: workflow_execution_id {} current stage = {} status = {}".format(workflow_execution_id, workflow_execution["current_stage"], workflow_execution["status"]))
+            
+            raise ChaliceViewError(
+                "Exception: workflow execution id '%s' is already complete" % workflow_execution_id)
+
         # if (workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]] != )
         stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
+        
+        # Sanity check the stage state
+        if stage["status"] in [awsmas.STAGE_STATUS_ERROR, awsmas.STAGE_STATUS_COMPLETE]:
+            raise ChaliceViewError(
+                "Exception: workflow execution id '%s' is already complete" % workflow_execution_id)
+
         stage['name'] = workflow_execution["current_stage"]
         stage["workflow_execution_id"] = workflow_execution_id
 
@@ -983,7 +996,8 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
         response = execution_table.get_item(
             Key={
                 'id': workflow_execution_id
-            })
+            },
+            ConsistentRead=True)
         # lookup workflow defintiion we need to execute
         if "Item" in response:
             workflow_execution = response["Item"]
@@ -994,7 +1008,7 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
 
         stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
         stage['name'] = workflow_execution["current_stage"]
-        stage['status'] = STAGE_STATUS_EXECUTING
+        stage['status'] = awsmas.STAGE_STATUS_EXECUTING
         stage['step_function_execution_arn'] = step_function_execution_arn
         if "metadata" not in stage:
             stage["metadata"] = {}
@@ -1059,7 +1073,8 @@ def get_workflow_execution_by_id(id):
     response = table.get_item(
         Key={
             'id': id
-        })
+        },
+        ConsistentRead=True)
 
     if "Item" in response:
         workflow_execution = response["Item"]
@@ -1087,7 +1102,8 @@ def delete_workflow_execution(id):
         response = table.get_item(
             Key={
                 'id': id
-            })
+            },
+            ConsistentRead=True)
         
         if "Item" in response:
             workflow_execution = response["Item"]

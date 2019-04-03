@@ -1,0 +1,20 @@
+
+
+{
+    'status': 'Complete', 
+    'media': 
+    {
+        'audio': 
+        {
+            's3bucket': mediaConvertOutput.s3bucket, 
+            's3key': mediaConvertOutput.s3key
+        }
+            
+    }, 
+    'metadata': 
+    {
+        'job_id': event.metadata.job_id, 
+        'input_key': event.metadata.input_key
+        } 
+    }
+     return output

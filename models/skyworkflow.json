@@ -1,72 +1,246 @@
 {
-    "name": "Sky-test",
-    "StartAt": "preprocess",
-    "Stages": {
-        "transcribe": {
-            "name": "transcribe",
-            "operations": [
-                "transcribe"
-            ],
-            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:transcribe",
-            "configuration": {
-                "transcribe": {
-                    "transcribeLanguage": "en-US",
-                    "mediaType": "audio",
-                    "enabled": true,
-                    "transcribeJobId": "null"
-                }
+    "workflow": {
+        "name": "sky-translate-demo",
+        "StartAt": "mas-translate-workflow-mediaconvert",
+        "Stages": {
+            "mas-translate-workflow-transcribe": {
+                "outputs": [
+                    {
+                        "name": "transcribe",
+                        "metadata": {
+                            "transcribeJobId": "transcribe-282cfe12-8b7c-4c48-8ed2-c10f50111475"
+                        },
+                        "media": {
+                            "text": {
+                                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                                "s3key": "metadata/transcription.txt"
+                            }
+                        },
+                        "status": "Complete"
+                    }
+                ],
+                "input": {
+                    "metadata": {
+                        "input_key": "video/polly_example.mp4",
+                        "job_id": "1553811254288-mafb6b"
+                    },
+                    "media": {
+                        "video": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "video/polly_example.mp4"
+                        },
+                        "audio": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "audio/polly_example_audio.mp4"
+                        }
+                    }
+                },
+                "metadata": {},
+                "operations": [
+                    "transcribe"
+                ],
+                "configuration": {
+                    "transcribe": {
+                        "transcribeLanguage": "en-US",
+                        "mediaType": "audio",
+                        "enabled": true
+                    }
+                },
+                "Next": "mas-translate-workflow-translate",
+                "name": "mas-translate-workflow-transcribe",
+                "Resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+                "metrics": {},
+                "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:mas-translate-workflow-transcribe",
+                "status": "Complete",
+                "step_function_execution_arn": "arn:aws:states:us-west-2:764127651952:execution:mas-translate-workflow-transcribe:mas-translate-workflow-transcribe282cfe12-8b7c-4c48-8ed2-c10f50111475"
             },
-            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
-            "Next": "translate"
-        },
-        "preprocess": {
-            "name": "preprocess",
-            "operations": [
-                "mediaconvert"
-            ],
-            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:preprocess",
-            "configuration": {
-                "mediaconvert": {
-                    "mediaType": "video",
-                    "enabled": true,
-                    "job_id": "null"
-                }
+            "mas-translate-workflow-mediaconvert": {
+                "outputs": [
+                    {
+                        "name": "mediaconvert",
+                        "metadata": {
+                            "input_key": "video/polly_example.mp4",
+                            "job_id": "1553811254288-mafb6b"
+                        },
+                        "media": {
+                            "audio": {
+                                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                                "s3key": "audio/polly_example_audio.mp4"
+                            }
+                        },
+                        "status": "Complete"
+                    }
+                ],
+                "input": {
+                    "media": {
+                        "video": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "video/polly_example.mp4"
+                        }
+                    }
+                },
+                "metadata": {},
+                "operations": [
+                    "mediaconvert"
+                ],
+                "configuration": {
+                    "mediaconvert": {
+                        "mediaType": "video",
+                        "enabled": true
+                    }
+                },
+                "Next": "mas-translate-workflow-transcribe",
+                "name": "mas-translate-workflow-mediaconvert",
+                "Resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+                "metrics": {},
+                "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:mas-translate-workflow-mediaconvert",
+                "status": "Complete",
+                "step_function_execution_arn": "arn:aws:states:us-west-2:764127651952:execution:mas-translate-workflow-mediaconvert:mas-translate-workflow-mediaconvert282cfe12-8b7c-4c48-8ed2-c10f50111475"
             },
-            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
-            "Next": "transcribe"
-        },
-        "polly": {
-            "name": "polly",
-            "End": true,
-            "operations": [
-                "polly"
-            ],
-            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:polly",
-            "configuration": {
-                "polly": {
-                    "pollyJobId": "null",
-                    "mediaType": "text",
-                    "enabled": true
-                }
+            "mas-translate-workflow-polly": {
+                "outputs": [
+                    {
+                        "name": "polly",
+                        "metadata": {
+                            "polly_job_id": "325e2e4a-af6a-440c-ae29-192b56901b9d"
+                        },
+                        "media": {
+                            "audio": {
+                                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                                "s3key": "audio/translation.mp3.325e2e4a-af6a-440c-ae29-192b56901b9d.mp3"
+                            }
+                        },
+                        "status": "Complete"
+                    }
+                ],
+                "input": {
+                    "metadata": {
+                        "input_key": "video/polly_example.mp4",
+                        "job_id": "1553811254288-mafb6b",
+                        "transcribeJobId": "transcribe-282cfe12-8b7c-4c48-8ed2-c10f50111475"
+                    },
+                    "media": {
+                        "video": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "video/polly_example.mp4"
+                        },
+                        "audio": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "audio/polly_example_audio.mp4"
+                        },
+                        "text": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "metadata/translation.txt"
+                        }
+                    }
+                },
+                "metadata": {},
+                "operations": [
+                    "polly"
+                ],
+                "configuration": {
+                    "polly": {
+                        "mediaType": "text",
+                        "enabled": true
+                    }
+                },
+                "name": "mas-translate-workflow-polly",
+                "Resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+                "End": true,
+                "metrics": {},
+                "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:mas-translate-workflow-polly",
+                "status": "Complete",
+                "step_function_execution_arn": "arn:aws:states:us-west-2:764127651952:execution:mas-translate-workflow-polly:mas-translate-workflow-polly282cfe12-8b7c-4c48-8ed2-c10f50111475"
             },
-            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution"
-        },
-        "translate": {
-            "name": "translate",
-            "operations": [
-                "translate"
-            ],
-            "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:translate",
-            "configuration": {
-                "translate": {
-                    "mediaType": "text",
-                    "TargetLanguageCode": "ru",
-                    "enabled": true,
-                    "SourceLanguageCode": "en"
-                }
-            },
-            "resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
-            "Next": "polly"
+            "mas-translate-workflow-translate": {
+                "outputs": [
+                    {
+                        "name": "translate",
+                        "status": "Complete",
+                        "media": {
+                            "text": {
+                                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                                "s3key": "metadata/translation.txt"
+                            }
+                        }
+                    }
+                ],
+                "input": {
+                    "metadata": {
+                        "input_key": "video/polly_example.mp4",
+                        "job_id": "1553811254288-mafb6b",
+                        "transcribeJobId": "transcribe-282cfe12-8b7c-4c48-8ed2-c10f50111475"
+                    },
+                    "media": {
+                        "video": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "video/polly_example.mp4"
+                        },
+                        "audio": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "audio/polly_example_audio.mp4"
+                        },
+                        "text": {
+                            "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                            "s3key": "metadata/transcription.txt"
+                        }
+                    }
+                },
+                "metadata": {},
+                "operations": [
+                    "translate"
+                ],
+                "configuration": {
+                    "translate": {
+                        "mediaType": "text",
+                        "TargetLanguageCode": "ru",
+                        "enabled": true,
+                        "SourceLanguageCode": "en"
+                    }
+                },
+                "Next": "mas-translate-workflow-polly",
+                "name": "mas-translate-workflow-translate",
+                "Resource": "https://sqs.us-west-2.amazonaws.com/764127651952/StageExecution",
+                "metrics": {},
+                "stateMachineArn": "arn:aws:states:us-west-2:764127651952:stateMachine:mas-translate-workflow-translate",
+                "status": "Complete",
+                "step_function_execution_arn": "arn:aws:states:us-west-2:764127651952:execution:mas-translate-workflow-translate:mas-translate-workflow-translate282cfe12-8b7c-4c48-8ed2-c10f50111475"
+            }
         }
-    }
- }
+    },
+    "trigger": "api",
+    "globals": {
+        "metadata": {
+            "input_key": "video/polly_example.mp4",
+            "polly_job_id": "325e2e4a-af6a-440c-ae29-192b56901b9d",
+            "job_id": "1553811254288-mafb6b",
+            "transcribeJobId": "transcribe-282cfe12-8b7c-4c48-8ed2-c10f50111475"
+        },
+        "media": {
+            "video": {
+                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                "s3key": "video/polly_example.mp4"
+            },
+            "audio": {
+                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                "s3key": "audio/translation.mp3.325e2e4a-af6a-440c-ae29-192b56901b9d.mp3"
+            },
+            "text": {
+                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                "s3key": "metadata/translation.txt"
+            }
+        }
+    },
+    "current_stage": "End",
+    "status": "Complete",
+    "input": {
+        "media": {
+            "video": {
+                "s3bucket": "mas-translator-app-skydatastore-2ajh8h1rl1xh",
+                "s3key": "video/polly_example.mp4"
+            }
+        }
+    },
+    "id": "282cfe12-8b7c-4c48-8ed2-c10f50111475",
+    "name": "sky-translate-demo"
+}

@@ -325,7 +325,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/8eb5dce25503223421b22e0a944bad60"
+          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -379,7 +379,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/8eb5dce25503223421b22e0a944bad60"
+          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -433,7 +433,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/8eb5dce25503223421b22e0a944bad60"
+          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
         },
         "Handler": "app.execute_stage_lambda",
         "MemorySize": 128,
@@ -836,7 +836,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "The Body contains the name of the workflow to execute, at least one input \nmedia type within the media object.  A dictionary of stage configuration \nobjects can be passed in to override the default configuration of the operations\nwithin the stages.\n\nBody: \n    {\n    \"name\":\"Default\",\n    \"input\": media-object\n    \"stageConfiguration\": {\n        {\n        \"stage-name\": {\n            \"operations: {\n                \"SplitAudio\": {\n                   \"enabled\": True,\n                   \"mediaTypes\": {\n                       \"video\": True/False,\n                       \"audio\": True/False,\n                       \"frame\": True/False\n                   }\n               },\n           },\n       }\n       ...\n       }\n    }\n\n\nReturns:\n    A dict mapping keys to the corresponding workflow execution created including \n    the workflowExecutionId, the AWS queue and state machine resources assiciated with\n    the workflow execution and the current execution status of the workflow. \n\n    {\n        \"name\": string,\n        \"StartAt\": \"Preprocess\",\n        \"Stages\": {\n            \"stage-name\": {\n                \"Type\": \"NestedQueue\",\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"Next\": \"Analysis\"\n            },\n            ...,\n            \"stage-name: {\n                \"Type\": \"NestedQueue\",\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"End\": true\n            }\n        }\n    }\n\nRaises:\n    200: The workflow execution was created successfully.\n    400: Bad Request - the input workflow was not found or was invalid\n    500: Internal server error  ",
+                "description": "The Body contains the name of the workflow to execute, at least one input \nmedia type within the media object.  A dictionary of stage configuration \nobjects can be passed in to override the default configuration of the operations\nwithin the stages.\n\nBody: \n    {\n    \"name\":\"Default\",\n    \"input\": media-object\n    \"configuration\": {\n        {\n        \"stage-name\": {\n            \"operations: {\n                \"SplitAudio\": {\n                   \"enabled\": True,\n                   \"mediaTypes\": {\n                       \"video\": True/False,\n                       \"audio\": True/False,\n                       \"frame\": True/False\n                   }\n               },\n           },\n       }\n       ...\n       }\n    }\n\n\nReturns:\n    A dict mapping keys to the corresponding workflow execution created including \n    the workflowExecutionId, the AWS queue and state machine resources assiciated with\n    the workflow execution and the current execution status of the workflow. \n\n    {\n        \"name\": string,\n        \"StartAt\": \"Preprocess\",\n        \"Stages\": {\n            \"stage-name\": {\n                \"Type\": \"NestedQueue\",\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"Next\": \"Analysis\"\n            },\n            ...,\n            \"stage-name: {\n                \"Type\": \"NestedQueue\",\n                \"Resource\": queueARN,\n                \"StateMachine\": stateMachineARN,\n                \"End\": true\n            }\n        }\n    }\n\nRaises:\n    200: The workflow execution was created successfully.\n    400: Bad Request - the input workflow was not found or was invalid\n    500: Internal server error  ",
                 "produces": [
                   "application/json"
                 ],
@@ -1661,10 +1661,10 @@
         }
       }
     },
-    "RestAPIDeploymentce26c28197": {
+    "RestAPIDeployment5cd5e888fb": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
-        "Description": "RestApi deployment id: ce26c281976108f46a0a7c9f2a48e11ebc9ceaee",
+        "Description": "RestApi deployment id: 5cd5e888fb61ce14c07c66bea161fc72c00b3f2d",
         "RestApiId": {
           "Ref": "RestAPI"
         },
@@ -1675,7 +1675,7 @@
       "Type": "AWS::ApiGateway::Stage",
       "Properties": {
         "DeploymentId": {
-          "Ref": "RestAPIDeploymentce26c28197"
+          "Ref": "RestAPIDeployment5cd5e888fb"
         },
         "RestApiId": {
           "Ref": "RestAPI"
