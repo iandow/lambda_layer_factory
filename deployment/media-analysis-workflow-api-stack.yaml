@@ -325,7 +325,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
+          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -379,7 +379,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
+          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -433,7 +433,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/b2f26ab4eed9757e9a4dbfc7ccfad81e"
+          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
         },
         "Handler": "app.execute_stage_lambda",
         "MemorySize": 128,

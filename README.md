@@ -7,15 +7,29 @@ The Media Analysis Solution is a turnkey reference implementation that helps cus
 
 For more information and a detailed deployment guide visit the Media Analysis Solution at https://aws.amazon.com/answers/media-entertainment/media-analysis-solution/.
 
+## Prerequisites: 
+Install the Node version 9. This is easies with the [node version manager](https://github.com/creationix/nvm) (nvm), like this:
+```
+curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
+source ~/.bashrc
+nvm install 9
+nvm use 9
+node --version # should say v9.11.2
+npm -version # should say 5.6.0
+```
+
+Install and setup credentials for the AWS CLI (see http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
+
 ## Running unit tests for customization
 * Clone the repository, then make the desired code changes
 * Next, run unit tests to make sure added customization passes the tests
 ```
 cd ./deployment
-chmod +x ./run-unit-tests.sh  \n
-./run-unit-tests.sh \n
+chmod +x ./run-unit-tests.sh
+./run-unit-tests.sh
 ```
-## Building distributable for customization
+
+## Build and deploy Cloud Formation templates
 * Configure the bucket name of your target Amazon S3 distribution bucket
 ```
 export DIST_OUTPUT_BUCKET=my-bucket-name # bucket where customized code will reside
@@ -25,13 +39,13 @@ _Note:_ You would have to create an S3 bucket with the prefix 'my-bucket-name-<a
 
 * Now build the distributable:
 ```
-chmod +x ./build-s3-dist.sh \n
-./build-s3-dist.sh $DIST_OUTPUT_BUCKET $VERSION \n
+chmod +x ./build-s3-dist.sh
+./build-s3-dist.sh $DIST_OUTPUT_BUCKET $VERSION
 ```
 
 * Deploy the distributable to an Amazon S3 bucket in your account. _Note:_ you must have the AWS Command Line Interface installed.
 ```
-aws s3 cp ./dist/ s3://my-bucket-name-<aws_region>/media-analysis-solution/<my-version>/ --recursive --acl bucket-owner-full-control --profile aws-cred-profile-name \n
+aws s3 cp ./dist/ s3://my-bucket-name-<aws_region>/media-analysis-solution/<my-version>/ --recursive --acl bucket-owner-full-control --profile aws-cred-profile-name
 ```
 
 * Get the link of the media-analysis-deploy.template uploaded to your Amazon S3 bucket.

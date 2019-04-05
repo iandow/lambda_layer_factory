@@ -5,7 +5,7 @@ Mappings:
     SourceCode:
         General:
             S3Bucket: '%%BUCKET_NAME%%'
-            KeyPrefix: "media-analysis-solution/%%VERSION%%/code"
+            KeyPrefix: "media-analysis-solution/%%VERSION%%"
 
 Resources:
   
@@ -53,7 +53,7 @@ Resources:
           Status: "Complete"
       Handler: test.video_test_lambda
       Code:
-        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "test_operations.zip"]]
       MemorySize: 256
       Role:
@@ -72,7 +72,7 @@ Resources:
           Status: "Complete"
       Handler: test.audio_test_lambda
       Code:
-        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "test_operations.zip"]]
       MemorySize: 256
       Role:
