@@ -10,6 +10,7 @@ mediaconvert = boto3.client("mediaconvert", region_name=region)
 operator_name = "mediaconvert"
 output_object = OutputHelper(operator_name)
 
+
 def lambda_handler(event, context):
     print("We got the following event:\n", event)
 
@@ -55,6 +56,10 @@ def lambda_handler(event, context):
             output_object.update_status("Complete")
 
             return output_object.return_output_object()
+        else:
+            output_object.update_status("Error")
+            output_object.update_metadata(mediaconvert_error="Unhandled exception", mediaconvert_job_id=job_id)
+            raise MasExecutionError(output_object.return_output_object())
 
 
 
