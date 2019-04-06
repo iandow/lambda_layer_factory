@@ -35,7 +35,7 @@ def lambda_handler(event, context):
             output_object.update_status("Executing")
             return output_object.return_output_object()
         elif comprehend_status == "COMPLETED":
-            output_uri = response["KeyPhrasesDetectionJobPropertiesList"]["OutputDataConfig"][0]["S3Uri"]
+            output_uri = response["KeyPhrasesDetectionJobPropertiesList"][0]["OutputDataConfig"]["S3Uri"]
             # TODO: Find a better way to split the uri, below will only work with 1 prefix, e.g. /metadata/outputuri
             bucket = output_uri.split("/")[4]
             key = output_uri.split("/")[5] + output_uri.split("/")[6]
