@@ -126,7 +126,12 @@ There are two important [AWS Lambda Limits](https://docs.aws.amazon.com/lambda/l
 * A function can use no more than 5 layers at a time. 
 * The total unzipped size of the function and all layers must be smaller than 250 MB. 
 
-***The following steps build a boilerplate operator as a Python3 lambda function using the boto3 library as a lambda layer.***
+*The following steps build a boilerplate operator as a Python3 lambda function using the boto3 library as a lambda layer.*
+
+## Prerequisites:
+
+* Install `jq` (see [https://stedolan.github.io/jq/download/](https://stedolan.github.io/jq/download/)).
+* Install and setup credentials for the AWS CLI (see http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
 
 ## Step 1 - Create the AWS Lambda function
 Package the source code for your lambda function into a zip file and deploy it:
