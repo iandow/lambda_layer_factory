@@ -8,7 +8,7 @@ The Media Analysis Solution is a turnkey reference implementation that helps cus
 For more information and a detailed deployment guide visit the Media Analysis Solution at https://aws.amazon.com/answers/media-entertainment/media-analysis-solution/.
 
 ## Prerequisites: 
-Install the Node version 9. This is easies with the [node version manager](https://github.com/creationix/nvm) (nvm), like this:
+Install the Node version 9. This is easiest with the [node version manager](https://github.com/creationix/nvm) (nvm), like this:
 ```
 curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
 source ~/.bashrc
@@ -118,9 +118,96 @@ Each microservice in analysis/lib/ follows the structure of:
   |-[service-name].js
 ```
 
+# Instructions for Building Custom Operators
+
+This section explains how to build custom operators as AWS Lambda functions using Python. You should package library dependencies as Lambda Layers, because:
+* they make Lambda functions smaller and faster to build and deploy
+* they enable you to use the AWS Lambda in-browser code editor (for functions less than 3MB).
+
+There are two important [AWS Lambda Limits](https://docs.aws.amazon.com/lambda/latest/dg/limits.html) to be aware of:
+* A function can use no more than 5 layers at a time. 
+* The total unzipped size of the function and all layers must be smaller than 250 MB. 
+
+Here are the steps to build a boilerplate Python3 lambda function using boto3 as a lambda layer:
+
+## Step 1 - Create the AWS Lambda function
+Package the source code for your lambda function into a zip file and deploy it:
+```
+FUNCTION_NAME=mas2-test3-test-video
+REGION=us-west-2
+
+cd ./source/operations/test/
+zip -g test.zip test.py
+aws lambda create-function --function-name $FUNCTION_NAME --timeout 10 --handler app.lambda_handler --region $REGION --zip-file fileb://./test.zip --runtime python3.6
+# Now remove the zip file since we're done with it
+rm test.zip
+```
+
+## Step 2 - Create a AWS Lambda Layer for boto3
+Build boto3 in a temporary virtualenv environment. Specify a specific boto3 version (as opposed to using latest) in order to keep the dependency in constant state.
+
+```
+LAYER_NAME=boto3
+
+virtualenv --no-site-packages venv
+source venv/bin/activate
+PY_DIR='build/python/lib/python3.6/site-packages'
+mkdir -p $PY_DIR
+echo "boto3==1.9.130" > requirements.txt
+pip install -r requirements.txt -t $PY_DIR
+cd build
+ZIPFILE=${LAYER_NAME}_layer.zip
+zip -r ../$ZIPFILE_layer.zip .
+cd ..
+deactivate
+# Remove the build files since we don't need them anymore
+rm -rf venv build
+```
+
+## Step 3 - Verify the Lambda Layer size
+Some libraries can be quite large (e.g. python-opencv). So, verify the Lambda Layer complies with limits (see https://docs.aws.amazon.com/lambda/latest/dg/limits.html) before proceeding, otherwise you might get a deploy error later.
+```
+MAX_PACKAGE_SIZE=250
+MAX_ZIP_SIZE=50
+
+if [ $((`stat -f%z $ZIPFILE` / 1000 / 1000)) -gt $MAX_ZIP_SIZE ]; then echo "ERROR: Zip file must be less than 50MB"; fi
+if [ $((`du -sm build | cut -f1`)) -gt $MAX_PACKAGE_SIZE ]; then echo "ERROR: Unzipped package must be less than 250MB"; fi
+```
+
+## Step 4 - Upload Lambda Layer
+
+Create a bucket to hold Lambda Layers and upload to it.
+
+```
+ACCOUNT_ID=$(aws sts get-caller-identity | jq -r ".Account")
+LAMBDA_LAYERS_BUCKET=lambda-layers-$ACCOUNT_ID
+
+# Make a bucket to store lambda layers:
+aws s3 mb s3://$LAMBDA_LAYERS_BUCKET
+aws s3 cp $ZIPFILE s3://$LAMBDA_LAYERS_BUCKET
+
+# Upload a lambda layer
+aws lambda publish-layer-version --layer-name $LAYER_NAME --description "boto3 for Python3.6" --content S3Bucket=$LAMBDA_LAYERS_BUCKET,S3Key=$ZIPFILE --compatible-runtimes python3.6
+```
+
+## Step 5 - Attach the Lambda Layer to the Lambda Function
+
+```
+LAYER=$(aws lambda list-layer-versions --layer-name $LAYER_NAME | jq -r '.LayerVersions[0].LayerVersionArn')
+aws lambda update-function-configuration --function-name $FUNCTION_NAME --layers $LAYER
+```
+
+## Step 6 - Test the Lambda Function
+
+Invoke your lambda function to make sure it works.
+```
+aws lambda invoke --function-name $FUNCTION_NAME --log-type Tail --payload '{"key1":"value1", "key2":"value2"}' output.txt
+cat output.txt
+```
+
 ***
 
-Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 Licensed under the Amazon Software License (the "License"). You may not use this file except in compliance with the License. A copy of the License is located at
 
