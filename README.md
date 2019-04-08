@@ -208,6 +208,11 @@ aws lambda invoke --function-name $FUNCTION_NAME --log-type Tail --payload '{"ke
 cat output.txt
 ```
 
+For the test function deployed above, you should see the following output:
+```
+{"name": "test-video-operation", "media": {"video": {"s3bucket": "media-analysis-us-east-1-526662735483", "s3key": "video_test_lamabda was here!"}}, "status": "Complete", "message": "Everything is great!"}
+```
+
 ***
 
 Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
