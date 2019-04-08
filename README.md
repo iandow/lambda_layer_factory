@@ -120,15 +120,13 @@ Each microservice in analysis/lib/ follows the structure of:
 
 # Instructions for Building Custom Operators
 
-This section explains how to build custom operators as AWS Lambda functions using Python. You should package library dependencies as Lambda Layers, because:
-* they make Lambda functions smaller and faster to build and deploy
-* they enable you to use the AWS Lambda in-browser code editor (for functions less than 3MB).
+This section explains how to build custom operators as AWS Lambda functions using Python. We recommend packaging library dependencies as Lambda Layers because they make Lambda functions smaller, which makes them faster to build and easier to view in the AWS Lambda in-browser code editor.
 
 There are two important [AWS Lambda Limits](https://docs.aws.amazon.com/lambda/latest/dg/limits.html) to be aware of:
 * A function can use no more than 5 layers at a time. 
 * The total unzipped size of the function and all layers must be smaller than 250 MB. 
 
-Here are the steps to build a boilerplate Python3 lambda function using boto3 as a lambda layer:
+***The following steps build a boilerplate operator as a Python3 lambda function using the boto3 library as a lambda layer.***
 
 ## Step 1 - Create the AWS Lambda function
 Package the source code for your lambda function into a zip file and deploy it:
