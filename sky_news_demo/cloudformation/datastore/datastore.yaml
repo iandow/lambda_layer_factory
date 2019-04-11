@@ -1,6 +1,0 @@
-AWSTemplateFormatVersion: '2010-09-09'
-
-Resources:
-# S3 Buckets
-  skyDataStore:
-    Type: "AWS::S3::Bucket"
