@@ -1,8 +1,8 @@
 import os
 import boto3
 # TODO: Figure out how to build this module properly
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
 
 region = os.environ['AWS_REGION']
 mediaconvert_role = os.environ['mediaconvertRole']
@@ -14,9 +14,16 @@ output_object = OutputHelper(operator_name)
 
 def lambda_handler(event, context):
     print("We got the following event:\n", event)
-
+    workflow_id = str(event["workflow_execution_id"])
     bucket = event["input"]["media"]["video"]["s3bucket"]
     key = event["input"]["media"]["video"]["s3key"]
+
+    # Adding in exception block for now since we aren't guaranteed an asset id will be present, should remove later
+    try:
+        asset_id = event['asset_id']
+    except KeyError as e:
+        print("No asset id passed in with this workflow", e)
+        asset_id = ''
 
     destination = "s3://" + bucket + "/" + "audio" + "/"
     file_input = "s3://" + bucket + "/" + key
@@ -106,6 +113,6 @@ def lambda_handler(event, context):
     else:
         job_id = response['Job']['Id']
         output_object.update_status("Executing")
-        output_object.update_metadata(mediaconvert_job_id=job_id, mediaconvert_input_file=key)
+        output_object.update_metadata(mediaconvert_job_id=job_id, mediaconvert_input_file=key, asset_id=asset_id, workflow_id=workflow_id)
         return output_object.return_output_object()
 

@@ -1,6 +1,6 @@
 import boto3
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
 
 polly = boto3.client('polly')
 s3 = boto3.client('s3')
@@ -10,15 +10,22 @@ output_object = OutputHelper(operator_name)
 
 
 def lambda_handler(event, context):
-
     print("We got this event:\n", event)
+
+    try:
+        workflow_id = event["workflow_id"]
+        asset_id = event["asset_id"]
+    except KeyError as e:
+        output_object.update_status("Error")
+        output_object.update_metadata(polly_error="Missing a required metadata key {e}".format(e=e))
+        raise MasExecutionError(output_object.return_output_object())
 
     try:
         bucket = event["input"]["media"]["text"]["s3bucket"]
         key = event["input"]["media"]["text"]["s3key"]
     except KeyError:
         output_object.update_status("Error")
-        output_object.update_metadata(translate_error="No valid inputs")
+        output_object.update_metadata(polly_error="No valid inputs")
         raise MasExecutionError(output_object.return_output_object())
     try:
         s3_response = s3.get_object(Bucket=bucket, Key=key)
@@ -46,7 +53,7 @@ def lambda_handler(event, context):
         raise MasExecutionError(output_object.return_output_object())
     else:
         polly_job_id = polly_response['SynthesisTask']['TaskId']
-        output_object.update_metadata(polly_job_id=polly_job_id)
+        output_object.update_metadata(polly_job_id=polly_job_id, workflow_id=workflow_id, asset_id=asset_id)
         output_object.update_status('Executing')
         return output_object.return_output_object()
 

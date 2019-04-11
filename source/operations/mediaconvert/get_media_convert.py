@@ -1,7 +1,9 @@
 import os
 import boto3
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
+from mas_helper import DataPlane
 
 region = os.environ["AWS_REGION"]
 
@@ -13,8 +15,14 @@ output_object = OutputHelper(operator_name)
 
 def lambda_handler(event, context):
     print("We got the following event:\n", event)
-
-    job_id = event["metadata"]["mediaconvert_job_id"]
+    try:
+        job_id = event["metadata"]["mediaconvert_job_id"]
+        workflow_id = event["metadata"]["workflow_id"]
+        asset_id = event["metadata"]["asset_id"]
+    except KeyError as e:
+        output_object.update_status("Error")
+        output_object.update_metadata(mediaconvert_error="Missing a required metadata key {e}".format(e=e))
+        raise MasExecutionError(output_object.return_output_object())
 
     try:
         response = mediaconvert.describe_endpoints()
@@ -37,7 +45,9 @@ def lambda_handler(event, context):
     else:
         if response["Job"]["Status"] == 'IN_PROGRESS' or response["Job"]["Status"] == 'PROGRESSING':
             output_object.update_status("Executing")
-            output_object.update_metadata(mediaconvert_job_id=job_id, mediaconvert_input_file=event["metadata"]["mediaconvert_input_file"])
+            output_object.update_metadata(mediaconvert_job_id=job_id,
+                                          mediaconvert_input_file=event["metadata"]["mediaconvert_input_file"],
+                                          asset_id=asset_id, workflow_id=workflow_id)
             return output_object.return_output_object()
         elif response["Job"]["Status"] == 'COMPLETE':
             output_uri = response["Job"]["Settings"]["OutputGroups"][0]["OutputGroupSettings"]["FileGroupSettings"]["Destination"]
@@ -51,16 +61,28 @@ def lambda_handler(event, context):
             file_name = event["metadata"]["mediaconvert_input_file"].split("/")[1].split(".")[0]
 
             key = folder + "/" + file_name + modifier + "." + extension
-            output_object.update_media("audio", bucket, key)
+
+            # Persist mediaconvert output
+            dataplane = DataPlane(asset_id, workflow_id)
+            persist_media = dataplane.persist_media(s3bucket=bucket, s3key=key)
+            if persist_media["status"] == "failed":
+                output_object.update_status("Error")
+                output_object.update_metadata(
+                    mediaconvert_error="Unable to persist media for asset: {asset}".format(asset=asset_id),
+                    mediaconvert_job_id=job_id)
+                raise MasExecutionError(output_object.return_output_object())
+            else:
+                new_bucket = persist_media['s3bucket']
+                new_key = persist_media['s3key']
+
+            output_object.update_media("audio", new_bucket, new_key)
             output_object.update_metadata(mediaconvert_job_id=job_id)
             output_object.update_status("Complete")
 
             return output_object.return_output_object()
         else:
             output_object.update_status("Error")
-            output_object.update_metadata(mediaconvert_error="Unhandled exception", mediaconvert_job_id=job_id)
+            output_object.update_metadata(mediaconvert_error="Unhandled exception, unable to get status from mediaconvert: {response}".format(response=response),
+                                          mediaconvert_job_id=job_id)
             raise MasExecutionError(output_object.return_output_object())
-
-
-
 

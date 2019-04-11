@@ -1,6 +1,8 @@
 import boto3
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
+from mas_helper import DataPlane
 
 polly = boto3.client("polly")
 s3 = boto3.client("s3")
@@ -14,9 +16,11 @@ def lambda_handler(event, context):
 
     try:
         task_id = event["metadata"]["polly_job_id"]
-    except KeyError:
+        workflow_id = event["metadata"]["workflow_id"]
+        asset_id = event["metadata"]["asset_id"]
+    except KeyError as e:
         output_object.update_status("Error")
-        output_object.update_metadata(translate_error="No valid job id")
+        output_object.update_metadata(transcribe_error="Missing a required metadata key {e}".format(e=e))
         raise MasExecutionError(output_object.return_output_object())
     try:
         polly_response = polly.get_speech_synthesis_task(
@@ -31,7 +35,7 @@ def lambda_handler(event, context):
         print("The status from polly is:\n", polly_status)
         if polly_status == "inProgress":
             polly_job_id = polly_response["SynthesisTask"]["TaskId"]
-            output_object.update_metadata(polly_job_id=polly_job_id)
+            output_object.update_metadata(polly_job_id=polly_job_id, asset_id=asset_id, workflow_id=workflow_id)
             output_object.update_status("Executing")
             return output_object.return_output_object()
         elif polly_status == "completed":
@@ -41,14 +45,28 @@ def lambda_handler(event, context):
             bucket = uri.split("/")[3]
             key = folder + "/" + file
 
-            output_object.update_metadata(polly_job_id=task_id)
-            output_object.update_media("audio", bucket, key)
-            output_object.update_status("Complete")
-            return output_object.return_output_object()
+            # persist polly media object
+
+            dataplane = DataPlane(asset_id, workflow_id)
+            persist_media = dataplane.persist_media(s3bucket=bucket, s3key=key)
+            if persist_media["status"] == "failed":
+                output_object.update_status("Error")
+                output_object.update_metadata(
+                    polly_error="Unable to persist media for asset: {asset}".format(asset=asset_id),
+                    polly_job_id=task_id)
+                raise MasExecutionError(output_object.return_output_object())
+            else:
+                new_bucket = persist_media['s3bucket']
+                new_key = persist_media['s3key']
+
+                output_object.update_metadata(polly_job_id=task_id)
+                output_object.update_media("audio", new_bucket, new_key)
+                output_object.update_status("Complete")
+
+                return output_object.return_output_object()
 
         elif polly_status == "scheduled":
-            polly_job_id = polly_response["SynthesisTask"]["TaskId"]
-            output_object.update_metadata(polly_job_id=polly_job_id)
+            output_object.update_metadata(polly_job_id=task_id, asset_id=asset_id, workflow_id=workflow_id)
             output_object.update_status("Executing")
             return output_object.return_output_object()
 

@@ -1,6 +1,6 @@
 import boto3
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
 
 comprehend = boto3.client('comprehend')
 s3 = boto3.client('s3')

@@ -4,8 +4,8 @@ import boto3
 region = os.environ['AWS_REGION']
 transcribe = boto3.client("transcribe")
 
-from outputHelper import OutputHelper
-from outputHelper import MasExecutionError
+from mas_helper import OutputHelper
+from mas_helper import MasExecutionError
 
 operator_name = 'transcribe'
 output_object = OutputHelper(operator_name)
@@ -14,9 +14,17 @@ output_object = OutputHelper(operator_name)
 
 
 def lambda_handler(event, context):
-        job_id = "transcribe" + "-" + str(event["workflow_execution_id"])
+        workflow_id = str(event["workflow_execution_id"])
+        job_id = "transcribe" + "-" + workflow_id
         valid_types = ["mp3", "mp4", "wav", "flac"]
         optional_settings = {}
+
+        # Adding in exception block for now since we aren't guaranteed an asset id will be present, should remove later
+        try:
+            asset_id = event['asset_id']
+        except KeyError as e:
+            print("No asset id passed in with this workflow", e)
+            asset_id = ''
 
         try:
             bucket = event["input"]["media"]["audio"]["s3bucket"]
@@ -68,7 +76,7 @@ def lambda_handler(event, context):
         else:
             if response["TranscriptionJob"]["TranscriptionJobStatus"] == "IN_PROGRESS":
                 output_object.update_status("Executing")
-                output_object.update_metadata(transcribe_job_id=job_id)
+                output_object.update_metadata(transcribe_job_id=job_id, asset_id=asset_id, workflow_id=workflow_id)
                 return output_object.return_output_object()
             elif response["TranscriptionJob"]["TranscriptionJobStatus"] == "FAILED":
                 output_object.update_status("Error")
@@ -76,7 +84,7 @@ def lambda_handler(event, context):
                 raise MasExecutionError(output_object.return_output_object())
             elif response["TranscriptionJob"]["TranscriptionJobStatus"] == "COMPLETE":
                 output_object.update_status("Executing")
-                output_object.update_metadata(transcribe_job_id=job_id)
+                output_object.update_metadata(transcribe_job_id=job_id, asset_id=asset_id, workflow_id=workflow_id)
                 return output_object.return_output_object()
             else:
                 output_object.update_status("Error")
