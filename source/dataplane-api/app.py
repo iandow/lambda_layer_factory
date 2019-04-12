@@ -18,16 +18,12 @@ APP_NAME = 'dataplane-api'
 app = Chalice(app_name=APP_NAME)
 
 # DDB resources
-# TODO: Get this env variable working
-# DATAPLANE_TABLE_NAME = os.environ['DATAPLANE_TABLE_NAME']
-DATAPLANE_TABLE_NAME = 'mas_dataplane_test'
+DATAPLANE_TABLE_NAME = os.environ['DATAPLANE_TABLE_NAME']
 DYNAMO_CLIENT = boto3.client('dynamodb')
 DYNAMO_RESOURCE = boto3.resource('dynamodb')
 
 # S3 resources
-# TODO: Get this env variable working
-# DATAPLANE_S3_BUCKET = os.environ['DATAPLANE_BUCKET_NAME']
-DATAPLANE_S3_BUCKET = 'dataplane-testing-v1'
+DATAPLANE_S3_BUCKET = os.environ['DATAPLANE_BUCKET_NAME']
 
 # TODO: Should we add a variable for the upload bucket?
 

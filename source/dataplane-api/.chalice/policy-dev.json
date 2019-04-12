@@ -13,7 +13,7 @@
     {
     "Effect": "Allow",
     "Action": "dynamodb:*",
-    "Resource": "arn:aws:dynamodb:us-west-2:764127651952:table/mas_dataplane_test"
+    "Resource": "arn:aws:dynamodb:*:*:table/*"
     }
   ]
 }

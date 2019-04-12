@@ -565,6 +565,38 @@ cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis
 
 
 echo "------------------------------------------------------------------------------"
+echo "Dataplane API Stack"
+echo "------------------------------------------------------------------------------"
+echo "Building Dataplane Stack"
+cd "$source_dir/dataplane-api" || exit
+
+prefix="media-analysis-solution/$2/code"
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+if ! [ -x "$(command -v chalice)" ]; then
+  echo 'Chalice is not installed. It is required for this solution. Exiting.'
+  exit 1
+fi
+
+
+chalice package dist
+./chalice-fix-inputs.py
+aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/dataplaneapi_sam.yaml" --profile default
+
+# Need to add something here to ensure docopt and aws-sam-translator are present
+./sam-translate.py
+
+
+echo "cp ./dist/dataplaneapi.yaml $template_dir/media-analysis-dataplane-api-stack.yaml"
+cp dist/dataplaneapi.yaml $template_dir/media-analysis-dataplane-api-stack.yaml
+
+echo "cp $template_dir/media-analysis-dataplane-api-stack.yaml $dist_dir/media-analysis-dataplane-api-stack.template"
+cp $template_dir/media-analysis-dataplane-api-stack.yaml $dist_dir/media-analysis-dataplane-api-stack.template
+
+
+echo "------------------------------------------------------------------------------"
 echo "Test Operations"
 echo "------------------------------------------------------------------------------"
 
