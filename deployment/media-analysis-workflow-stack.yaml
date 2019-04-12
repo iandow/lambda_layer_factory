@@ -228,16 +228,6 @@ Resources:
                     - CompleteStageLambda
                     - Arn 
 
-<<<<<<< HEAD
-
-    
-# Outputs:
-#   Message:
-#     Description: The message from the custom resource.
-#     Value: !GetAtt 'CustomResource.Message'
-
-
-=======
   MediaAnalysisDataplaneApiStack:
         Type: "AWS::CloudFormation::Stack"
         Properties:
@@ -245,7 +235,7 @@ Resources:
             Parameters:
               DataplaneTableName: !Ref DataplaneTable
               DataplaneBucketName: !Ref DataplaneBucket
->>>>>>> 3194e614c2d0aa8093946e704f9b762edf1af963
+              
 Outputs:
   WorkflowTable:
     Description: Workflow definition table
