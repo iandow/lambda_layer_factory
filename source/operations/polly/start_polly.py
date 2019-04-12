@@ -8,17 +8,22 @@ s3 = boto3.client('s3')
 operator_name = 'polly'
 output_object = OutputHelper(operator_name)
 
+# TODO: Move voiceid to a user configurable variable
 
 def lambda_handler(event, context):
     print("We got this event:\n", event)
 
     try:
-        workflow_id = event["workflow_id"]
-        asset_id = event["asset_id"]
+        workflow_id = event["workflow_execution_id"]
     except KeyError as e:
         output_object.update_status("Error")
         output_object.update_metadata(polly_error="Missing a required metadata key {e}".format(e=e))
         raise MasExecutionError(output_object.return_output_object())
+    try:
+        asset_id = event["asset_id"]
+    except KeyError:
+        print('No asset id passed along with this workflow')
+        asset_id = ''
 
     try:
         bucket = event["input"]["media"]["text"]["s3bucket"]

@@ -6,6 +6,7 @@ from mas_helper import MasExecutionError
 
 region = os.environ['AWS_REGION']
 mediaconvert_role = os.environ['mediaconvertRole']
+base_s3_key = os.environ['base_s3_key']
 
 mediaconvert = boto3.client("mediaconvert", region_name=region)
 
@@ -14,9 +15,14 @@ output_object = OutputHelper(operator_name)
 
 def lambda_handler(event, context):
     print("We got the following event:\n", event)
-    workflow_id = str(event["workflow_execution_id"])
-    bucket = event["input"]["media"]["video"]["s3bucket"]
-    key = event["input"]["media"]["video"]["s3key"]
+    try:
+        workflow_id = str(event["workflow_execution_id"])
+        bucket = event["input"]["media"]["video"]["s3bucket"]
+        key = event["input"]["media"]["video"]["s3key"]
+    except KeyError as e:
+        output_object.update_status("Error")
+        output_object.update_metadata(mediaconvert_error="Missing a required metadata key {e}".format(e=e))
+        raise MasExecutionError(output_object.return_output_object())
 
     # Adding in exception block for now since we aren't guaranteed an asset id will be present, should remove later
     try:
@@ -25,8 +31,8 @@ def lambda_handler(event, context):
         print("No asset id passed in with this workflow", e)
         asset_id = ''
 
-    destination = "s3://" + bucket + "/" + "audio" + "/"
     file_input = "s3://" + bucket + "/" + key
+    destination = "s3://" + bucket + "/" + base_s3_key + asset_id + "/" + "derived" + "/" + workflow_id + "/"
 
     try:
         response = mediaconvert.describe_endpoints()

@@ -60,6 +60,9 @@ class DataPlane:
             return {"status": "success"}
 
     def persist_media(self, **kwargs):
+        # TODO: Add input checking to ensure kwargs isn't empty
+
+        # If S3bucket and S3key are included we'll just copy it into the dataplane s3bucket
         try:
             s3bucket = kwargs["s3bucket"]
             s3key = kwargs["s3key"]
@@ -67,7 +70,12 @@ class DataPlane:
             print("No s3object included")
             pass
         else:
-            new_key = self.base_s3_key + self.asset_id + '/' + 'derived' + '/' + self.workflow_id + '/' + s3key.split('/')[-1]
+            new_key = self.base_s3_key + self.asset_id + '/' + 'derived' + '/' + self.workflow_id + '/' + \
+                      s3key.split('/')[-1]
+            print(new_key)
+            print(dataplane_bucket)
+            print(s3key)
+            print(s3bucket)
             try:
                 self.s3_client.copy_object(
                     Bucket=dataplane_bucket,
@@ -79,6 +87,8 @@ class DataPlane:
                 return {"status": "failed", "message": e}
             else:
                 return {"status": "success", "s3bucket": dataplane_bucket, "s3key": new_key}
+
+        # If no s3bucket or s3key is passed, we will write the object to s3 and return the location
         try:
             data = kwargs["data"]
             file_name = kwargs["file_name"]

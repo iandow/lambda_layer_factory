@@ -79,13 +79,11 @@ Resources:
                - Action:
                    - "s3:GetObject"
                    - "s3:PutObject"
-                   - "s3:CopyObject"
                  Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
                  Effect: "Allow"
                - Action:
                    - "s3:GetObject"
                    - "s3:PutObject"
-                   - "s3:CopyObject"
                  Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                  Effect: "Allow"
   preprocessRole:
@@ -100,7 +98,7 @@ Resources:
               Service: "lambda.amazonaws.com"
       Policies:
         -
-          PolicyName: "skyTranscribeAccess"
+          PolicyName: "skyMediaConvertAccess"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -113,7 +111,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
                 Effect: "Allow"
               - Action:
@@ -129,7 +126,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                 Effect: "Allow"
 
@@ -158,7 +154,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
                 Effect: "Allow"
               - Action:
@@ -170,7 +165,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                 Effect: "Allow"
 
@@ -198,7 +192,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
                 Effect: "Allow"
               - Action:
@@ -210,7 +203,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                 Effect: "Allow"
 
@@ -238,7 +230,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
                 Effect: "Allow"
               - Action:
@@ -250,7 +241,6 @@ Resources:
               - Action:
                   - "s3:GetObject"
                   - "s3:PutObject"
-                  - "s3:CopyObject"
                 Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                 Effect: "Allow"
 
@@ -329,7 +319,7 @@ Resources:
   skyCheckTranscribeFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "get_transcribe.handler"
+      Handler: "get_transcribe.lambda_handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]

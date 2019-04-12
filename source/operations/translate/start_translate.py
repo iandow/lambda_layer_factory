@@ -17,18 +17,23 @@ def lambda_handler(event, context):
         try:
             bucket = event["input"]["media"]["text"]["s3bucket"]
             key = event["input"]["media"]["text"]["s3key"]
-        except KeyError:
+        except KeyError as e:
             output_object.update_status("Error")
-            output_object.update_metadata(translate_error="No valid inputs")
+            output_object.update_metadata(translate_error="No valid inputs {e}".format(e=e))
             raise MasExecutionError(output_object.return_output_object())
 
         try:
-            workflow_id = event["workflow_id"]
-            asset_id = event["asset_id"]
+            workflow_id = event["workflow_execution_id"]
         except KeyError as e:
             output_object.update_status("Error")
             output_object.update_metadata(translate_error="Missing a required metadata key {e}".format(e=e))
             raise MasExecutionError(output_object.return_output_object())
+
+        try:
+            asset_id = event["asset_id"]
+        except KeyError:
+            print('No asset id for this workflow')
+            asset_id = ''
 
         try:
             source_lang = event["configuration"]["translate"]["SourceLanguageCode"]
