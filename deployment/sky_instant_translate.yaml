@@ -49,6 +49,9 @@ Parameters:
     Type: "String"
     Description: "Prefix for the dataplane s3 bucket"
 
+  WorkflowCustomResourceArn:
+      Type: String
+      Description: "ARN of the Media Analysis custom resource that handles creating operations, stages and workflows"
 
 Resources:
 # S3 Buckets
@@ -749,3 +752,139 @@ Resources:
         	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
+
+# Operations
+
+  mediaconvertOperation:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Operation"
+      name: "mediaconvert"
+      configuration: 
+          {
+            "mediaType": "video",
+            "enabled": true
+          }
+      stateMachineArn: !Ref preprocessStepFunction
+      stateMachineExecutionRoleArn: !GetAtt stepFunctionRole.Arn
+
+  transcribeOperation:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Operation"
+      name: "transcribe"
+      configuration: 
+          {
+            "transcribeLanguage": "en-US",
+            "mediaType": "audio",
+            "enabled": true
+          } 
+      stateMachineArn: !Ref transcribeStepFunction
+      stateMachineExecutionRoleArn: !GetAtt stepFunctionRole.Arn
+
+  translateOperation:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Operation"
+      name: "translate"
+      configuration: 
+          {
+              "mediaType": "text",
+              "TargetLanguageCode": "ru",
+              "enabled": true,
+              "SourceLanguageCode": "en"
+          }
+      stateMachineArn: !Ref translateStepFunction
+      stateMachineExecutionRoleArn: !GetAtt stepFunctionRole.Arn
+
+  pollyOperation:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Operation"
+      name: "polly"
+      configuration: 
+        {
+          "mediaType": "text",
+          "enabled": true
+        }
+      stateMachineArn: !Ref pollyStepFunction
+      stateMachineExecutionRoleArn: !GetAtt stepFunctionRole.Arn
+
+  # Stages
+
+  mediaconvertStage:
+    DependsOn: mediaconvertOperation
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Stage"
+      name: "mediaconvert"
+      operations:
+        - mediaconvert
+
+  transcribeStage:
+    DependsOn: transcribeOperation
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Stage"
+      name: "transcribe"
+      operations:
+        - transcribe
+
+  translateStage:
+    DependsOn: translateOperation
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Stage"
+      name: "translate"
+      operations:
+        - translate
+
+  pollyStage:
+    DependsOn: pollyOperation
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Stage"
+      name: "polly"
+      operations:
+        - polly
+
+  # Workflow
+
+  InstantTranslateWorkflow:
+    DependsOn: 
+      - mediaconvertStage
+      - transcribeStage
+      - translateStage
+      - pollyStage
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Workflow"
+      name: "InstantTranslateWorkflow"
+      Stages: !Sub |-
+        {
+          "mediaconvert":{
+            "Next": "transcribe"
+            },
+          "transcribe":{
+            "Next": "translate"
+            },
+          "translate":{
+            "Next": "polly"
+            },
+          "polly":{
+            "End": true
+            }
+        }
+      StartAt: mediaconvert
+
+
+

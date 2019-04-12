@@ -954,6 +954,8 @@ def create_workflow_execution(trigger, workflow_execution):
         input = workflow_execution["input"]
         configuration = workflow_execution["configuration"] if "configuration" in workflow_execution  else {}
         
+        # BRANDON - make an asset
+        
         workflow_execution = initialize_workflow_execution(trigger, name, input, configuration)
 
         execution_table.put_item(Item=workflow_execution)
@@ -1006,6 +1008,7 @@ def initialize_workflow_execution(trigger, name, input, configuration):
         workflow["Stages"][stage]["metrics"] = {}
         workflow["Stages"][stage]["name"] = stage
         workflow["Stages"][stage]["workflow_execution_id"] = workflow_execution["id"]
+        # BRANDON - add the asset id here
         if "metadata" not in workflow["Stages"][stage]:
             workflow["Stages"][stage]["metadata"] = {}
 
@@ -1326,6 +1329,9 @@ def operation_resource(event, context):
 
             
             operation[event["ResourceProperties"]["name"]] = event["ResourceProperties"]
+
+            #FIXME - boolean type comes in as tet from cloudformation - must decode string or take string for anabled parameter
+            operation[event["ResourceProperties"]["name"]]["configuration"]["enabled"] = bool(operation[event["ResourceProperties"]["name"]]["configuration"]["enabled"])
 
             create_operation(operation)
             
