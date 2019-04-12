@@ -172,44 +172,317 @@ cp "$template_dir/media-analysis-preprocess-state-machine-stack.yaml" "$dist_dir
 
 
 echo "------------------------------------------------------------------------------"
-echo "Sky Translate Demo Functions"
+echo "Mediaconvert  Operations"
 echo "------------------------------------------------------------------------------"
 
-# Here is where I package the sky demo lambda functions
+echo "Building Stage completion function"
+cd "$source_dir/operations/mediaconvert" || exit
 
-# Need to convert this to the correct packaging format
+[ -e dist ] && rm -r dist
+mkdir -p dist
 
-echo "Building mediaconvert functions"
+[ -e package ] && rm -r package
+mkdir -p package
 
-# Mediaconvert
+echo "create requirements for lambda"
 
-zip -j $dist_dir/startMediaConvert.zip $sky_demo_dir/operations/mediaconvert/startMediaConvert.js
-zip -j $dist_dir/getMediaConvert.zip $sky_demo_dir/operations/mediaconvert/getMediaConvert.js
+#pipreqs . --force
 
-echo "Building transcribe functions"
+# Make lambda package
 
-# Transcribe
+pushd package
+echo "create lambda package"
 
-zip -j $dist_dir/startTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-start.js
-zip -j $dist_dir/checkTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-checkstatus.js
-zip -j $dist_dir/putS3Transcribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-put-s3.py
-zip -j $dist_dir/resultTranscribe.zip $sky_demo_dir/operations/transcribe/mas-transcribe-result.js
+# Handle distutils install errors
 
-echo "Building polly functions"
+touch ./setup.cfg
 
-# Polly
+echo "[install]" > ./setup.cfg
+echo "prefix= " >> ./setup.cfg
 
-zip -j $dist_dir/startPolly.zip $sky_demo_dir/operations/polly/mas-start-polly.py
-zip -j $dist_dir/checkPolly.zip $sky_demo_dir/operations/polly/mas-check-polly.py
+# Try and handle failure if pip version mismatch
+if [ -x "$(command -v pip)" ]; then
+  pip install -r ../requirements.txt --target .
 
-echo "Building translate functions"
+elif [ -x "$(command -v pip3)" ]; then
+  echo "pip not found, trying with pip3"
+  pip3 install -r ../requirements.txt --target .
 
-# Translate
+elif ! [ -x "$(command -v pip)" ] && ! [ -x "$(command -v pip3)" ]; then
+ echo "No version of pip installed. This script requires pip. Cleaning up and exiting."
+ exit 1
+fi
 
-zip -j $dist_dir/startTranslate.zip $sky_demo_dir/operations/translate/mas-translate.py
-zip -j $dist_dir/putS3Translate.zip $sky_demo_dir/operations/translate/mas-translate-put-s3.py
+if ! [ -d ../dist/start_media_convert.zip ]; then
+  zip -r9 ../dist/start_media_convert.zip .
+
+elif [ -d ../dist/start_media_convert.zip ]; then
+  echo "Package already present"
+fi
+
+if ! [ -d ../dist/get_media_convert.zip ]; then
+  zip -r9 ../dist/get_media_convert.zip .
+
+elif [ -d ../dist/get_media_convert.zip ]; then
+  echo "Package already present"
+fi
+
+popd
+
+zip -g dist/start_media_convert.zip start_media_convert.py mas_helper.py
+zip -g dist/get_media_convert.zip get_media_convert.py mas_helper.py
+
+cp "./dist/start_media_convert.zip" "$dist_dir/start_media_convert.zip"
+cp "./dist/get_media_convert.zip" "$dist_dir/get_media_convert.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Transcribe  Operations"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/operations/transcribe" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+
+pushd package
+echo "create lambda package"
+
+# Handle distutils install errors
+
+touch ./setup.cfg
+
+echo "[install]" > ./setup.cfg
+echo "prefix= " >> ./setup.cfg
+
+# Try and handle failure if pip version mismatch
+if [ -x "$(command -v pip)" ]; then
+  pip install -r ../requirements.txt --target .
+
+elif [ -x "$(command -v pip3)" ]; then
+  echo "pip not found, trying with pip3"
+  pip3 install -r ../requirements.txt --target .
+
+elif ! [ -x "$(command -v pip)" ] && ! [ -x "$(command -v pip3)" ]; then
+ echo "No version of pip installed. This script requires pip. Cleaning up and exiting."
+ exit 1
+fi
+
+if ! [ -d ../dist/start_transcribe.zip ]; then
+  zip -r9 ../dist/start_transcribe.zip .
+
+elif [ -d ../dist/start_transcribe.zip ]; then
+  echo "Package already present"
+fi
+
+if ! [ -d ../dist/get_transcribe.zip ]; then
+  zip -r9 ../dist/get_transcribe.zip .
+
+elif [ -d ../dist/get_transcribe.zip ]; then
+  echo "Package already present"
+fi
+
+popd
+
+zip -g dist/start_transcribe.zip start_transcribe.py mas_helper.py
+zip -g dist/get_transcribe.zip get_transcribe.py mas_helper.py
+
+cp "./dist/start_transcribe.zip" "$dist_dir/start_transcribe.zip"
+cp "./dist/get_transcribe.zip" "$dist_dir/get_transcribe.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Translate  Operations"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/operations/translate" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+
+pushd package
+echo "create lambda package"
+
+# Handle distutils install errors
+
+touch ./setup.cfg
+
+echo "[install]" > ./setup.cfg
+echo "prefix= " >> ./setup.cfg
+
+# Try and handle failure if pip version mismatch
+if [ -x "$(command -v pip)" ]; then
+  pip install -r ../requirements.txt --target .
+
+elif [ -x "$(command -v pip3)" ]; then
+  echo "pip not found, trying with pip3"
+  pip3 install -r ../requirements.txt --target .
+
+elif ! [ -x "$(command -v pip)" ] && ! [ -x "$(command -v pip3)" ]; then
+ echo "No version of pip installed. This script requires pip. Cleaning up and exiting."
+ exit 1
+fi
+
+if ! [ -d ../dist/start_translate.zip ]; then
+  zip -r9 ../dist/start_translate.zip .
+
+elif [ -d ../dist/start_translate.zip ]; then
+  echo "Package already present"
+fi
+
+popd
+
+zip -g dist/start_translate.zip start_translate.py mas_helper.py
+
+cp "./dist/start_translate.zip" "$dist_dir/start_translate.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Polly  Operations"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/operations/polly" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+
+pushd package
+echo "create lambda package"
+
+# Handle distutils install errors
+
+touch ./setup.cfg
+
+echo "[install]" > ./setup.cfg
+echo "prefix= " >> ./setup.cfg
+
+# Try and handle failure if pip version mismatch
+if [ -x "$(command -v pip)" ]; then
+  pip install -r ../requirements.txt --target .
+
+elif [ -x "$(command -v pip3)" ]; then
+  echo "pip not found, trying with pip3"
+  pip3 install -r ../requirements.txt --target .
+
+elif ! [ -x "$(command -v pip)" ] && ! [ -x "$(command -v pip3)" ]; then
+ echo "No version of pip installed. This script requires pip. Cleaning up and exiting."
+ exit 1
+fi
+
+if ! [ -d ../dist/start_polly.zip ]; then
+  zip -r9 ../dist/start_polly.zip .
+
+elif [ -d ../dist/start_polly.zip ]; then
+  echo "Package already present"
+fi
+
+if ! [ -d ../dist/get_polly.zip ]; then
+  zip -r9 ../dist/get_polly.zip .
+
+elif [ -d ../dist/get_polly.zip ]; then
+  echo "Package already present"
+fi
 
 
+popd
+
+zip -g dist/start_polly.zip start_polly.py mas_helper.py
+zip -g dist/get_polly.zip get_polly.py mas_helper.py
+
+cp "./dist/start_polly.zip" "$dist_dir/start_polly.zip"
+cp "./dist/get_polly.zip" "$dist_dir/get_polly.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Comprehend  Operations"
+echo "------------------------------------------------------------------------------"
+
+echo "Building Stage completion function"
+cd "$source_dir/operations/comprehend" || exit
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+[ -e package ] && rm -r package
+mkdir -p package
+
+echo "create requirements for lambda"
+
+#pipreqs . --force
+
+# Make lambda package
+
+pushd package
+echo "create lambda package"
+
+# Handle distutils install errors
+
+touch ./setup.cfg
+
+echo "[install]" > ./setup.cfg
+echo "prefix= " >> ./setup.cfg
+
+# Try and handle failure if pip version mismatch
+if [ -x "$(command -v pip)" ]; then
+  pip install -r ../requirements.txt --target .
+
+elif [ -x "$(command -v pip3)" ]; then
+  echo "pip not found, trying with pip3"
+  pip3 install -r ../requirements.txt --target .
+
+elif ! [ -x "$(command -v pip)" ] && ! [ -x "$(command -v pip3)" ]; then
+ echo "No version of pip installed. This script requires pip. Cleaning up and exiting."
+ exit 1
+fi
+
+if ! [ -d ../dist/start_key_phrases.zip ]; then
+  zip -r9 ../dist/start_key_phrases.zip .
+
+elif [ -d ../dist/start_key_phrases.zip ]; then
+  echo "Package already present"
+fi
+
+if ! [ -d ../dist/get_key_phrases.zip ]; then
+  zip -r9 ../dist/get_key_phrases.zip .
+
+elif [ -d ../dist/get_key_phrases.zip ]; then
+  echo "Package already present"
+fi
+
+
+popd
+
+zip -g dist/start_key_phrases.zip start_key_phrases.py mas_helper.py
+zip -g dist/get_key_phrases.zip get_key_phrases.py mas_helper.py
+
+cp "./dist/start_key_phrases.zip" "$dist_dir/start_key_phrases.zip"
+cp "./dist/get_key_phrases.zip" "$dist_dir/get_key_phrases.zip"
 
 echo "------------------------------------------------------------------------------"
 echo "Stage Completion Function"
@@ -292,6 +565,38 @@ cp dist/workflowapi.yaml $template_dir/media-analysis-workflow-api-stack.yaml
 
 echo "cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template"
 cp $template_dir/media-analysis-workflow-api-stack.yaml $dist_dir/media-analysis-workflow-api-stack.template
+
+
+echo "------------------------------------------------------------------------------"
+echo "Dataplane API Stack"
+echo "------------------------------------------------------------------------------"
+echo "Building Dataplane Stack"
+cd "$source_dir/dataplane-api" || exit
+
+prefix="media-analysis-solution/$2/code"
+
+[ -e dist ] && rm -r dist
+mkdir -p dist
+
+if ! [ -x "$(command -v chalice)" ]; then
+  echo 'Chalice is not installed. It is required for this solution. Exiting.'
+  exit 1
+fi
+
+
+chalice package dist
+./chalice-fix-inputs.py
+aws cloudformation package --template-file dist/sam.json --s3-bucket $bucket --s3-prefix $prefix --output-template-file "dist/dataplaneapi_sam.yaml" --profile default
+
+# Need to add something here to ensure docopt and aws-sam-translator are present
+./sam-translate.py
+
+
+echo "cp ./dist/dataplaneapi.yaml $template_dir/media-analysis-dataplane-api-stack.yaml"
+cp dist/dataplaneapi.yaml $template_dir/media-analysis-dataplane-api-stack.yaml
+
+echo "cp $template_dir/media-analysis-dataplane-api-stack.yaml $dist_dir/media-analysis-dataplane-api-stack.template"
+cp $template_dir/media-analysis-dataplane-api-stack.yaml $dist_dir/media-analysis-dataplane-api-stack.template
 
 
 echo "------------------------------------------------------------------------------"
@@ -460,5 +765,3 @@ echo "--------------------------------------------------------------------------
 echo "------------------------------------------------------------------------------"
 echo "Done"
 echo "------------------------------------------------------------------------------"
-
-

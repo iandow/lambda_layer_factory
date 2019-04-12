@@ -34,7 +34,6 @@ Resources:
                   - lambda:InvokeFunction
                 Resource:
                   - !Join ["", ["arn:aws:lambda:", Ref: "AWS::Region", ":", Ref: "AWS::AccountId", ":", "function:*" ]]
-
   StageExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -146,7 +145,26 @@ Resources:
         WriteCapacityUnits: '5'
       TableName: !Join ["", [Ref: "AWS::StackName", "WorkflowExecution"]]
 
-    
+  DataplaneTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: asset_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: asset_id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: !Join ["", [Ref: "AWS::StackName", "DataplaneTable"]]
+
+  # Services - S3
+  DataplaneBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Join ["", [Ref: "AWS::StackName", "dataplanebucket"]]
+
   # Services - SQS
   
   StageExecutionDeadLetterQueue:
@@ -210,6 +228,7 @@ Resources:
                     - CompleteStageLambda
                     - Arn 
 
+<<<<<<< HEAD
 
     
 # Outputs:
@@ -218,6 +237,15 @@ Resources:
 #     Value: !GetAtt 'CustomResource.Message'
 
 
+=======
+  MediaAnalysisDataplaneApiStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"] , !FindInMap ["SourceCode", "General", "TemplateKeyPrefix"], "media-analysis-dataplane-api-stack.template"]]
+            Parameters:
+              DataplaneTableName: !Ref DataplaneTable
+              DataplaneBucketName: !Ref DataplaneBucket
+>>>>>>> 3194e614c2d0aa8093946e704f9b762edf1af963
 Outputs:
   WorkflowTable:
     Description: Workflow definition table

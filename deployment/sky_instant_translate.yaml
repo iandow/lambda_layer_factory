@@ -10,46 +10,45 @@ Parameters:
   startMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the start mediaconvert code"
-    Default: "startMediaConvert.zip"
+    Default: "start_media_convert.zip"
   checkMediaConvertCode:
     Type: "String"
     Description: "S3 Key of the check mediaconvert code"
-    Default: "getMediaConvert.zip"
+    Default: "get_media_convert.zip"
 
   startTranscribeCode:
     Type: "String"
     Description: "S3 Key of the start transcribe code"
-    Default: "startTranscribe.zip"
+    Default: "start_transcribe.zip"
   checkTranscribeCode:
     Type: "String"
-    Default: "checkTranscribe.zip"
+    Default: "get_transcribe.zip"
     Description: "S3 Key of the check transcribe code"
-  resultTranscribeCode:
-    Type: "String"
-    Description: "S3 Key of the result transcribe code"
-    Default: "resultTranscribe.zip"
-  putS3TranscribeCode:
-    Type: "String"
-    Description: "S3 Key of the putS3 transcribe code"
-    Default: "putS3Transcribe.zip"
 
   startTranslateCode:
     Type: "String"
     Description: "S3 Key of the start translate code"
-    Default: "startTranslate.zip"
-  putS3TranslateCode:
-    Type: "String"
-    Description: "S3 Key of the putS3 translate code"
-    Default: "putS3Translate.zip"
+    Default: "start_translate.zip"
 
   startPollyCode:
     Type: "String"
     Description: "S3 Key of the start polly code"
-    Default: "startPolly.zip"
+    Default: "start_polly.zip"
   checkPollyCode:
     Type: "String"
     Description: "S3 Key of the check polly code"
-    Default: "checkPolly.zip"
+    Default: "get_polly.zip"
+
+  DataPlaneUrl:
+    Type: "String"
+    Description: "Base endpoint url of the dataplane"
+  DataPlaneBucket:
+    Type: "String"
+    Description: "Bucket for the dataplane"
+  DataPlanePath:
+    Type: "String"
+    Description: "Prefix for the dataplane s3 bucket"
+
 
 Resources:
 # S3 Buckets
@@ -77,12 +76,16 @@ Resources:
            PolicyDocument:
              Version: "2012-10-17"
              Statement:
-               -
-                 Effect: "Allow"
-                 Action:
+               - Action:
                    - "s3:GetObject"
                    - "s3:PutObject"
                  Resource: !Sub 'arn:aws:s3:::${skyDataStore}/*'
+                 Effect: "Allow"
+               - Action:
+                   - "s3:GetObject"
+                   - "s3:PutObject"
+                 Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
+                 Effect: "Allow"
   preprocessRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -95,7 +98,7 @@ Resources:
               Service: "lambda.amazonaws.com"
       Policies:
         -
-          PolicyName: "skyTranscribeAccess"
+          PolicyName: "skyMediaConvertAccess"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -119,6 +122,11 @@ Resources:
               - Action:
                   - "iam:PassRole"
                 Resource: !GetAtt "mediaConvertRole.Arn"
+                Effect: "Allow"
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
                 Effect: "Allow"
 
   transcribeRole:
@@ -154,6 +162,11 @@ Resources:
                   - 'logs:PutLogEvents'
                 Resource: 'arn:aws:logs:*:*:*:*'
                 Effect: Allow
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
+                Effect: "Allow"
 
   translateRole:
     Type: "AWS::IAM::Role"
@@ -187,6 +200,11 @@ Resources:
                   - 'logs:PutLogEvents'
                 Resource: 'arn:aws:logs:*:*:*:*'
                 Effect: Allow
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
+                Effect: "Allow"
 
   pollyRole:
     Type: "AWS::IAM::Role"
@@ -220,6 +238,11 @@ Resources:
                   - 'logs:PutLogEvents'
                 Resource: 'arn:aws:logs:*:*:*:*'
                 Effect: Allow
+              - Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource: !Sub 'arn:aws:s3:::${DataPlaneBucket}/*'
+                Effect: "Allow"
 
   stepFunctionRole:
     Type: "AWS::IAM::Role"
@@ -248,111 +271,114 @@ Resources:
   skyStartMediaConvertFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "startMediaConvert.handler"
+      Handler: "start_media_convert.lambda_handler"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startMediaConvertCode"]]
-      Runtime: "nodejs8.10"
+      Runtime: "python3.7"
       Environment:
         Variables:
           mediaconvertRole: !GetAtt "mediaConvertRole.Arn"
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   skyCheckMediaConvertFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "getMediaConvert.handler"
+      Handler: "get_media_convert.lambda_handler"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkMediaConvertCode"]]
-      Runtime: "nodejs8.10"
+      Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   # Transcribe Lambdas
 
   skyStartTranscribeFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "mas-transcribe-start.handler"
+      Handler: "start_transcribe.lambda_handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startTranscribeCode"]]
-      Runtime: "nodejs8.10"
+      Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   skyCheckTranscribeFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "mas-transcribe-checkstatus.handler"
+      Handler: "get_transcribe.lambda_handler"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkTranscribeCode"]]
-      Runtime: "nodejs8.10"
-
-  skyResultTranscribeFunction:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      Handler: "mas-transcribe-result.handler"
-      Role: !GetAtt "transcribeRole.Arn"
-      Code:
-        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "resultTranscribeCode"]]
-      Runtime: "nodejs8.10"
-
-  skyPutS3TranscribeFunction:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      Handler: "mas-transcribe-put-s3.lambda_handler"
-      Role: !GetAtt "transcribeRole.Arn"
-      Code:
-        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "putS3TranscribeCode"]]
       Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   # Translate Lambdas
 
   skyTranslateFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "mas-translate.lambda_handler"
+      Handler: "start_translate.lambda_handler"
       Role: !GetAtt "translateRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startTranslateCode"]]
       Runtime: "python3.7"
-
-  skyPutS3TranslateFunction:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      Handler: "mas-translate-put-s3.lambda_handler"
-      Role: !GetAtt "translateRole.Arn"
-      Code:
-        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "putS3TranslateCode"]]
-      Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   # Polly Lambdas
 
   skyStartPollyFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "mas-start-polly.lambda_handler"
+      Handler: "start_polly.lambda_handler"
       Role: !GetAtt "pollyRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "startPollyCode"]]
       Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
   skyCheckPollyFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "mas-check-polly.lambda_handler"
+      Handler: "get_polly.lambda_handler"
       Role: !GetAtt "pollyRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
         S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  !Ref "checkPollyCode"]]
       Runtime: "python3.7"
+      Environment:
+        Variables:
+          dataplane_base_url: !Ref "DataPlaneUrl"
+          dataplane_bucket: !Ref "DataPlaneBucket"
+          base_s3_key: !Ref "DataPlanePath"
 
 # Step Functions
 
@@ -362,76 +388,93 @@ Resources:
       StateMachineName: "skyPreprocessStateMachine"
       DefinitionString: !Sub |-
         {
-        	"StartAt": "Is Type?",
+        	"StartAt": "Is mediaconvert Enabled?",
         	"States": {
-        		"Is Type?": {
+        		"Is mediaconvert Enabled?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.mediaconvert.enabled",
+                        "BooleanEquals": true,
+        				"Next": "Is mediaconvert Media Type?"
+        			}],
+        			"Default": "mediaconvert Not Started"
+        		},
+        		"Is mediaconvert Media Type?": {
         			"Type": "Choice",
         			"Choices": [{
         				"Variable": "$.configuration.mediaconvert.mediaType",
         				"StringEquals": "video",
-        				"Next": "Media Convert Enabled?"
+        				"Next": "Execute mediaconvert"
         			}],
-        			"Default": "Media Convert Not Started"
+        			"Default": "mediaconvert Not Started"
         		},
-        		"Media Convert Enabled?": {
-        			"Type": "Choice",
-        			"Choices": [{
-        				"Variable": "$.configuration.mediaconvert.enabled",
-        				"BooleanEquals": true,
-        				"Next": "Start MediaConvert"
-        			}],
-        			"Default": "Media Convert Not Started"
-        		},
-        		"Media Convert Not Started": {
+        		"mediaconvert Not Started": {
         			"Type": "Succeed"
         		},
-        		"Start MediaConvert": {
+        		"Execute mediaconvert": {
         			"Type": "Task",
         			"Resource": "${skyStartMediaConvertFunction.Arn}",
         			"ResultPath": "$.outputs",
-        			"Next": "Did MediaConvert Start"
+                    "OutputPath": "$.outputs",
+        			"Next": "mediaconvert Wait",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "mediaconvert Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
         		},
-        		"Did MediaConvert Start": {
-        			"Type": "Choice",
-        			"InputPath": "$.outputs",
-        			"Choices": [{
-        				"Variable": "$.status",
-        				"StringEquals": "Executing",
-        				"Next": "MediaConvert Wait"
-        			}],
-        			"Default": "Media Convert Failed"
-        		},
-        		"MediaConvert Wait": {
+        		"mediaconvert Wait": {
         			"Type": "Wait",
-        			"Seconds": 5,
-        			"Next": "Get MediaConvert Status"
+        			"Seconds": 10,
+        			"Next": "Get mediaconvert Status"
         		},
-        		"Get MediaConvert Status": {
+        		"Get mediaconvert Status": {
         			"Type": "Task",
         			"Resource": "${skyCheckMediaConvertFunction.Arn}",
-        			"Next": "Did MediaConvert Complete",
-        			"Catch": [{
-        				"ErrorEquals": ["Error"],
-        				"Next": "Media Convert Failed"
-        			}]
+        			"Next": "Did mediaconvert Complete",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "mediaconvert Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
         		},
-        		"Did MediaConvert Complete": {
+        		"Did mediaconvert Complete": {
         			"Type": "Choice",
         			"Choices": [{
-        				"Variable": "$.status",
-        				"StringEquals": "Error",
-        				"Next": "Media Convert Failed"
-        			}, {
-        				"Variable": "$.status",
-        				"StringEquals": "Complete",
-        				"Next": "Media Convert Succeeded"
-        			}],
-        			"Default": "MediaConvert Wait"
+        					"Variable": "$.status",
+        					"StringEquals": "Executing",
+        					"Next": "mediaconvert Wait"
+        				},
+        				{
+        					"Variable": "$.status",
+        					"StringEquals": "Complete",
+        					"Next": "mediaconvert Succeeded"
+        				}
+        			],
+        			"Default": "mediaconvert Failed"
         		},
-        		"Media Convert Failed": {
+        		"mediaconvert Failed": {
         			"Type": "Fail"
         		},
-        		"Media Convert Succeeded": {
+        		"mediaconvert Succeeded": {
         			"Type": "Succeed"
         		}
         	}
@@ -444,92 +487,96 @@ Resources:
       StateMachineName: "skyTranscribeStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
-          "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.transcribe.mediaType",
-                "StringEquals": "audio",
-                "Next": "Transcribe Enabled?"
-              }],
-              "Default": "Transcribe Not Started"
-            },
-
-            "Transcribe Enabled?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.transcribe.enabled",
-                "BooleanEquals": true,
-                "Next": "Start Transcribe"
-              }],
-              "Default": "Transcribe Not Started"
-            },
-
-            "Transcribe Not Started": {
-              "Type": "Succeed"
-            },
-
-            "Start Transcribe": {
-              "Type": "Task",
-              "Resource": "${skyStartTranscribeFunction.Arn}",
-              "ResultPath": "$.outputs",
-              "Next": "Did Transcribe Start"
-            },
-            "Did Transcribe Start": {
+        	"StartAt": "Is transcribe Enabled?",
+        	"States": {
+        		"Is transcribe Enabled?": {
         			"Type": "Choice",
-        			"InputPath": "$.outputs",
-        			"Choices": [
-                {
-        				"Variable": "$.status",
-        				"StringEquals": "Executing",
-        				"Next": "Transcribe Wait"
-        			  },
-                {
-                "Variable": "$.status",
-        				"StringEquals": "Complete",
-        				"Next": "Transcribe Result"
-                }
-              ],
-        			"Default": "Transcribe Failed"
+        			"Choices": [{
+        				"Variable": "$.configuration.transcribe.enabled",
+                        "BooleanEquals": true,
+        				"Next": "Is transcribe Media Type?"
+        			}],
+        			"Default": "transcribe Not Started"
         		},
-            "Transcribe Wait": {
-              "Type": "Wait",
-              "Seconds": 10,
-              "Next": "Get Transcribe Status"
-            },
-            "Get Transcribe Status": {
-              "Type": "Task",
-              "Resource": "${skyCheckTranscribeFunction.Arn}",
-              "Next": "Transcribe Completed?",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "Transcribe Failed"
-              }]
-            },
-            "Transcribe Completed?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.status",
-                "StringEquals": "Complete",
-                "Next": "Transcribe Result"
-              }],
-              "Default": "Transcribe Wait"
-            },
-            "Transcribe Result": {
-              "Type": "Task",
-              "Resource": "${skyResultTranscribeFunction.Arn}",
-              "Next": "Send transcription to S3"
-            },
-            "Send transcription to S3": {
-              "Type": "Task",
-              "Resource": "${skyPutS3TranscribeFunction.Arn}",
-              "End": true
-            },
-            "Transcribe Failed": {
-              "Type": "Fail"
-            }
-          }
+        		"Is transcribe Media Type?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.transcribe.mediaType",
+        				"StringEquals": "audio",
+        				"Next": "Execute transcribe"
+        			}],
+        			"Default": "transcribe Not Started"
+        		},
+        		"transcribe Not Started": {
+        			"Type": "Succeed"
+        		},
+        		"Execute transcribe": {
+        			"Type": "Task",
+        			"Resource": "${skyStartTranscribeFunction.Arn}",
+        			"ResultPath": "$.outputs",
+                    "OutputPath": "$.outputs",
+        			"Next": "transcribe Wait",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "transcribe Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
+        		},
+        		"transcribe Wait": {
+        			"Type": "Wait",
+        			"Seconds": 10,
+        			"Next": "Get transcribe Status"
+        		},
+        		"Get transcribe Status": {
+        			"Type": "Task",
+        			"Resource": "${skyCheckTranscribeFunction.Arn}",
+        			"Next": "Did transcribe Complete",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "transcribe Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
+        		},
+        		"Did transcribe Complete": {
+        			"Type": "Choice",
+        			"Choices": [{
+        					"Variable": "$.status",
+        					"StringEquals": "Executing",
+        					"Next": "transcribe Wait"
+        				},
+        				{
+        					"Variable": "$.status",
+        					"StringEquals": "Complete",
+        					"Next": "transcribe Succeeded"
+        				}
+        			],
+        			"Default": "transcribe Failed"
+        		},
+        		"transcribe Failed": {
+        			"Type": "Fail"
+        		},
+        		"transcribe Succeeded": {
+        			"Type": "Succeed"
+        		}
+        	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
 
@@ -539,52 +586,68 @@ Resources:
       StateMachineName: "skyTranslateStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
-          "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.translate.mediaType",
-                "StringEquals": "text",
-                "Next": "translate Enabled?"
-              }],
-              "Default": "translate Not Started"
-            },
-
-            "translate Enabled?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.translate.enabled",
-                "BooleanEquals": true,
-                "Next": "Start translate"
-              }],
-              "Default": "translate Not Started"
-            },
-
-            "translate Not Started": {
-              "Type": "Succeed"
-            },
-
-            "Start translate": {
-              "Type": "Task",
-              "Resource": "${skyTranslateFunction.Arn}",
-              "ResultPath": "$.outputs",
-              "Next": "Send translation to S3",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "translate Failed"
-              }]
-            },
-            "Send translation to S3": {
-              "Type": "Task",
-              "InputPath": "$.outputs",
-              "Resource": "${skyPutS3TranslateFunction.Arn}",
-              "End": true
-            },
-            "translate Failed": {
-              "Type": "Fail"
-            }
-          }
+        	"StartAt": "Is translate Enabled?",
+        	"States": {
+        		"Is translate Enabled?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.translate.enabled",
+                        "BooleanEquals": true,
+        				"Next": "Is translate Media Type?"
+        			}],
+        			"Default": "translate Not Started"
+        		},
+        		"Is translate Media Type?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.translate.mediaType",
+        				"StringEquals": "text",
+        				"Next": "Execute translate"
+        			}],
+        			"Default": "translate Not Started"
+        		},
+        		"translate Not Started": {
+        			"Type": "Succeed"
+        		},
+        		"Execute translate": {
+        			"Type": "Task",
+        			"Resource": "${skyTranslateFunction.Arn}",
+        			"ResultPath": "$.outputs",
+                    "OutputPath": "$.outputs",
+        			"Next": "Did translate Complete",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "translate Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
+        		},
+        		"Did translate Complete": {
+        			"Type": "Choice",
+        			"Choices": [
+        				{
+        					"Variable": "$.status",
+        					"StringEquals": "Complete",
+        					"Next": "translate Succeeded"
+        				}
+        			],
+        			"Default": "translate Failed"
+        		},
+        		"translate Failed": {
+        			"Type": "Fail"
+        		},
+        		"translate Succeeded": {
+        			"Type": "Succeed"
+        		}
+        	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
 
@@ -594,83 +657,95 @@ Resources:
       StateMachineName: "skyPollyStateMachine"
       DefinitionString: !Sub |-
         {
-          "StartAt": "Is Type?",
-          "States": {
-            "Is Type?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.polly.mediaType",
-                "StringEquals": "text",
-                "Next": "polly Enabled?"
-              }],
-              "Default": "polly Not Started"
-            },
-
-            "polly Enabled?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.configuration.polly.enabled",
-                "BooleanEquals": true,
-                "Next": "Start polly"
-              }],
-              "Default": "polly Not Started"
-            },
-
-            "polly Not Started": {
-              "Type": "Succeed"
-            },
-
-            "Start polly": {
-              "Type": "Task",
-              "Resource": "${skyStartPollyFunction.Arn}",
-              "ResultPath": "$.outputs",
-              "Next": "Did Polly Start",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "polly Failed"
-              }]
-            },
-            "Did Polly Start": {
+        	"StartAt": "Is polly Enabled?",
+        	"States": {
+        		"Is polly Enabled?": {
         			"Type": "Choice",
-        			"InputPath": "$.outputs",
-        			"Choices": [
-                {
-        				"Variable": "$.status",
-        				"StringEquals": "Executing",
-        				"Next": "polly Wait"
-        			  }
-              ],
+        			"Choices": [{
+        				"Variable": "$.configuration.polly.enabled",
+                        "BooleanEquals": true,
+        				"Next": "Is polly Media Type?"
+        			}],
+        			"Default": "polly Not Started"
+        		},
+        		"Is polly Media Type?": {
+        			"Type": "Choice",
+        			"Choices": [{
+        				"Variable": "$.configuration.polly.mediaType",
+        				"StringEquals": "text",
+        				"Next": "Execute polly"
+        			}],
+        			"Default": "polly Not Started"
+        		},
+        		"polly Not Started": {
+        			"Type": "Succeed"
+        		},
+        		"Execute polly": {
+        			"Type": "Task",
+        			"Resource": "${skyStartPollyFunction.Arn}",
+        			"ResultPath": "$.outputs",
+                    "OutputPath": "$.outputs",
+        			"Next": "polly Wait",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "polly Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
+        		},
+        		"polly Wait": {
+        			"Type": "Wait",
+        			"Seconds": 10,
+        			"Next": "Get polly Status"
+        		},
+        		"Get polly Status": {
+        			"Type": "Task",
+        			"Resource": "${skyCheckPollyFunction.Arn}",
+        			"Next": "Did polly Complete",
+        			"Retry": [ {
+           				"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                        "IntervalSeconds": 2,
+        				"MaxAttempts": 2,
+        				"BackoffRate": 2
+        			}
+        			],
+        			"Catch": [
+                    {
+                       "ErrorEquals": ["States.ALL"],
+                       "Next": "polly Failed",
+                       "ResultPath": "$.outputs"
+                    }
+        			]
+        		},
+        		"Did polly Complete": {
+        			"Type": "Choice",
+        			"Choices": [{
+        					"Variable": "$.status",
+        					"StringEquals": "Executing",
+        					"Next": "polly Wait"
+        				},
+        				{
+        					"Variable": "$.status",
+        					"StringEquals": "Complete",
+        					"Next": "polly Succeeded"
+        				}
+        			],
         			"Default": "polly Failed"
         		},
-            "polly Wait": {
-              "Type": "Wait",
-              "Seconds": 10,
-              "Next": "Get polly Status"
-            },
-            "Get polly Status": {
-              "Type": "Task",
-              "Resource": "${skyCheckPollyFunction.Arn}",
-              "Next": "polly Completed?",
-              "Catch": [{
-                "ErrorEquals": [ "Error" ],
-                "Next": "polly Failed"
-              }]
-            },
-            "polly Completed?": {
-              "Type": "Choice",
-              "Choices": [{
-                "Variable": "$.status",
-                "StringEquals": "Complete",
-                "Next": "polly Result"
-              }],
-              "Default": "polly Wait"
-            },
-            "polly Result": {
-              "Type": "Succeed"
-            },
-            "polly Failed": {
-              "Type": "Fail"
-            }
-          }
+        		"polly Failed": {
+        			"Type": "Fail"
+        		},
+        		"polly Succeeded": {
+        			"Type": "Succeed"
+        		}
+        	}
         }
       RoleArn: !GetAtt "stepFunctionRole.Arn"
