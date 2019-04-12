@@ -39,6 +39,14 @@
       "Value": {
         "Ref": "RestAPI"
       }
+    },
+    "WorkflowCustomResourceArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "WorkflowCustomResource",
+          "Arn"
+        ]
+      }
     }
   },
   "Parameters": {
@@ -320,12 +328,88 @@
       },
       "Type": "AWS::IAM::Role"
     },
+    "WorkflowCustomResourceRole": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Sid": ""
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*",
+                  "Sid": "Logging"
+                },
+                {
+                  "Action": [
+                    "dynamodb:*"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    "*"
+                  ],
+                  "Sid": "DynamoTables"
+                },
+                {
+                  "Action": "states:*",
+                  "Effect": "Allow",
+                  "Resource": "*"
+                },
+                {
+                  "Action": [
+                    "sqs:*"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    "*"
+                  ],
+                  "Sid": "SQS"
+                },
+                {
+                  "Action": [
+                    "iam:PassRole"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    "arn:aws:iam::526662735483:role/mascode-MediaAnalysisFunctionRole-6YDC4OXE1XH3",
+                    "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-3TQLNRNTLAKW",
+                    "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1NQQVDCXLSXGN",
+                    "arn:aws:sts::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX",
+                    "*"
+                  ]
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "WorkflowCustomResourceRolePolicy"
+          }
+        ]
+      },
+      "Type": "AWS::IAM::Role"
+    },
     "APIHandler": {
       "Type": "AWS::Lambda::Function",
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
+          "S3Key": "media-analysis-solution/v2.0.4/code/d274bc345e6277cb2b85ae44a6202f0d"
         },
         "Handler": "app.app",
         "MemorySize": 128,
@@ -379,7 +463,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
+          "S3Key": "media-analysis-solution/v2.0.4/code/d274bc345e6277cb2b85ae44a6202f0d"
         },
         "Handler": "app.create_workflow_execution_s3",
         "MemorySize": 128,
@@ -433,13 +517,67 @@
       "Properties": {
         "Code": {
           "S3Bucket": "elementalrodeo99-us-east-1",
-          "S3Key": "media-analysis-solution/v2.0.4/code/3d91ba7e82c606aa5c2960479488ff0b"
+          "S3Key": "media-analysis-solution/v2.0.4/code/d274bc345e6277cb2b85ae44a6202f0d"
         },
         "Handler": "app.execute_stage_lambda",
         "MemorySize": 128,
         "Role": {
           "Fn::GetAtt": [
             "ExecuteStageLambdaRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "python3.6",
+        "Timeout": 60,
+        "Environment": {
+          "Variables": {
+            "COMPLETE_STAGE_LAMBDA_ARN": {
+              "Ref": "CompleteStageLambdaArn"
+            },
+            "OPERATION_TABLE_NAME": {
+              "Ref": "OperationTableName"
+            },
+            "STAGE_EXECUTION_QUEUE_URL": {
+              "Ref": "StageExecutionQueueUrl"
+            },
+            "STAGE_EXECUTION_ROLE": {
+              "Ref": "StageExecutionRole"
+            },
+            "STAGE_TABLE_NAME": {
+              "Ref": "StageTableName"
+            },
+            "WORKFLOW_EXECUTION_TABLE_NAME": {
+              "Ref": "WorkflowExecutionTableName"
+            },
+            "WORKFLOW_TABLE_NAME": {
+              "Ref": "WorkflowTableName"
+            }
+          }
+        },
+        "Tags": [
+          {
+            "Key": "lambda:createdBy",
+            "Value": "SAM"
+          },
+          {
+            "Key": "aws-chalice",
+            "Value": "version=1.7.0:stage=dev:app=workflow-api"
+          }
+        ]
+      }
+    },
+    "WorkflowCustomResource": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "elementalrodeo99-us-east-1",
+          "S3Key": "media-analysis-solution/v2.0.4/code/d274bc345e6277cb2b85ae44a6202f0d"
+        },
+        "Handler": "app.workflow_custom_resource",
+        "MemorySize": 128,
+        "Role": {
+          "Fn::GetAtt": [
+            "WorkflowCustomResourceRole",
             "Arn"
           ]
         },
@@ -642,6 +780,7 @@
                 "consumes": [
                   "application/json"
                 ],
+                "description": "XXX",
                 "produces": [
                   "application/json"
                 ],
@@ -653,6 +792,7 @@
                     }
                   }
                 },
+                "summary": "Update a workflow NOT IMPLEMENTED ",
                 "x-amazon-apigateway-integration": {
                   "contentHandling": "CONVERT_TO_TEXT",
                   "httpMethod": "POST",
@@ -868,6 +1008,7 @@
                 "consumes": [
                   "application/json"
                 ],
+                "description": "XXX",
                 "produces": [
                   "application/json"
                 ],
@@ -879,6 +1020,7 @@
                     }
                   }
                 },
+                "summary": "Update a workflow execution NOT IMPLEMENTED ",
                 "x-amazon-apigateway-integration": {
                   "contentHandling": "CONVERT_TO_TEXT",
                   "httpMethod": "POST",
@@ -1178,7 +1320,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "The body defines the configuration parameters for the operator, the \nexpected inputs and their data types as well as a state machine that \ndefines the operator.  The state machine must contain logic to make a \nruntime decision of whether or not the opetator will execute based on the \ninputs and configuration presented to it.  For example, if the input is an \naudio file, the operator must check the configuration and decide if it can \nprocess audio.  \n\nIf a stateMachineArn is provided on the input, then the ASL for the \noperator is copied from the exsting state machine.   Otherwise, the ASL \nfor the state machine must be specified in the body.\n\nBody: \n    {\n        \"name\": \"string\",\n        \"configuration\" : {\n            \"mediaType\": \"video\",\n            \"enabled:\": True,\n            \"configuration1\": \"value1\",\n            \"configuration2\": \"value2\",\n            ...\n        }\n        \"stateMachineArn\":arn,\n        \"stateMachineExecutionRoleArn\":arn\n\n    }\n\nReturns:\n    A dict mapping keys to the corresponding operation created including \n    the ASL for the duplicated state machine an id and a create time.\n\nRaises:\n    200: The operation was created successfully.\n    400: Bad Request - the input state machine ARN was not found or the \n         state machine ASL is invalid\n    500: Internal server error ",
+                "description": "The body defines the configuration parameters for the operator, the \nexpected inputs and their data types as well as a state machine that \ndefines the operator.  The state machine must contain logic to make a \nruntime decision of whether or not the opetator will execute based on the \ninputs and configuration presented to it.  For example, if the input is an \naudio file, the operator must check the configuration and decide if it can \nprocess audio.  \n\nIf a stateMachineArn is provided on the input, then the ASL for the \noperator is copied from the exsting state machine.   Otherwise, the ASL \nfor the state machine must be specified in the body.\n\nBody: \n    {\n        \"name\": \"string\",\n        \"configuration\" : {\n            \"mediaType\": \"video\",\n            \"enabled:\": True,\n            \"configuration1\": \"value1\",\n            \"configuration2\": \"value2\",\n            ...\n        }\n        \"stateMachineArn\":arn,\n        \"stateMachineExecutionRoleArn\":arn\n\n    }\n\nReturns:\n    A dict mapping keys to the corresponding operation created including \n    the ASL for the duplicated state machine an id and a create time.\n\nRaises:\n    200: The operation was created successfully.\n    400: Bad Request - the input state machine ARN was not found or the \n         state machine ASL is invalid\n    409: Conflict - an operation with the same name already exists\n    500: Internal server error ",
                 "produces": [
                   "application/json"
                 ],
@@ -1210,6 +1352,7 @@
                 "consumes": [
                   "application/json"
                 ],
+                "description": "XXX",
                 "produces": [
                   "application/json"
                 ],
@@ -1221,6 +1364,7 @@
                     }
                   }
                 },
+                "summary": "Update n operation NOT IMPLEMENTED ",
                 "x-amazon-apigateway-integration": {
                   "contentHandling": "CONVERT_TO_TEXT",
                   "httpMethod": "POST",
@@ -1238,6 +1382,46 @@
               }
             },
             "/workflow/operation/{name}": {
+              "delete": {
+                "consumes": [
+                  "application/json"
+                ],
+                "description": "Returns:  \n\nRaises:\n    200: Operation deleted sucessfully.\n    404: Not found\n    500: Internal server error ",
+                "parameters": [
+                  {
+                    "in": "path",
+                    "name": "name",
+                    "required": true,
+                    "type": "string"
+                  }
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "summary": "Delete a an operation",
+                "x-amazon-apigateway-integration": {
+                  "contentHandling": "CONVERT_TO_TEXT",
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "aws_proxy",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
+                  }
+                }
+              },
               "get": {
                 "consumes": [
                   "application/json"
@@ -1313,7 +1497,7 @@
                     "default": {
                       "responseParameters": {
                         "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
-                        "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Methods": "'GET,DELETE,OPTIONS'",
                         "method.response.header.Access-Control-Allow-Origin": "'*'"
                       },
                       "statusCode": "200"
@@ -1404,7 +1588,7 @@
                 "consumes": [
                   "application/json"
                 ],
-                "description": "A stage is a set of operations that are grouped so they can be executed in parallel.\nWhen the stage is executed as part of a workflow, operations within a stage are executed as\nbranches in a parallel state.  The generated state machines status is tracked by the \nworkflow engine control plane during execution.\n\nBody: \n    {\n    \"name\":\"stage-name\",\n    \"operations\": [\"operation-name1\", \"operation-name2\", ...]\n    }\n\nReturns:\n    A dict mapping keys to the corresponding stage created including \n    the ARN of the state machine created. \n\n    {\n        \"name\": \"stage-name\",\n        \"operations\": [\n            \"operation-name1\",\n            \"operation-name2\", \n            ...\n        ],\n        \"configuration\": {\n            \"operation-name1\": operation-configuration-object1,\n            \"operation-name2\": operation-configuration-object1,\n            ...\n        }\n        \"stateMachineArn\": ARN-string\n    }\n\nRaises:\n    200: The stage was created successfully.\n    400: Bad Request - one of the input state machines was not found or was invalid\n    500: Internal server error ",
+                "description": "A stage is a set of operations that are grouped so they can be executed in parallel.\nWhen the stage is executed as part of a workflow, operations within a stage are executed as\nbranches in a parallel state.  The generated state machines status is tracked by the \nworkflow engine control plane during execution.\n\nBody: \n    {\n    \"name\":\"stage-name\",\n    \"operations\": [\"operation-name1\", \"operation-name2\", ...]\n    }\n\nReturns:\n    A dict mapping keys to the corresponding stage created including \n    the ARN of the state machine created. \n\n    {\n        \"name\": \"stage-name\",\n        \"operations\": [\n            \"operation-name1\",\n            \"operation-name2\", \n            ...\n        ],\n        \"configuration\": {\n            \"operation-name1\": operation-configuration-object1,\n            \"operation-name2\": operation-configuration-object1,\n            ...\n        }\n        \"stateMachineArn\": ARN-string\n    }\n\nRaises:\n    200: The stage was created successfully.\n    400: Bad Request - one of the input state machines was not found or was invalid\n    409: Conflict\n    500: Internal server error ",
                 "produces": [
                   "application/json"
                 ],
@@ -1436,6 +1620,7 @@
                 "consumes": [
                   "application/json"
                 ],
+                "description": "XXX",
                 "produces": [
                   "application/json"
                 ],
@@ -1447,6 +1632,7 @@
                     }
                   }
                 },
+                "summary": "Update a stage NOT IMPLEMENTED ",
                 "x-amazon-apigateway-integration": {
                   "contentHandling": "CONVERT_TO_TEXT",
                   "httpMethod": "POST",
@@ -1464,6 +1650,46 @@
               }
             },
             "/workflow/stage/{name}": {
+              "delete": {
+                "consumes": [
+                  "application/json"
+                ],
+                "description": "Returns:  \n\nRaises:\n    200: Stage deleted sucessfully.\n    404: Not found\n    500: Internal server error ",
+                "parameters": [
+                  {
+                    "in": "path",
+                    "name": "name",
+                    "required": true,
+                    "type": "string"
+                  }
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "summary": "Delete a stage",
+                "x-amazon-apigateway-integration": {
+                  "contentHandling": "CONVERT_TO_TEXT",
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "aws_proxy",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
+                  }
+                }
+              },
               "get": {
                 "consumes": [
                   "application/json"
@@ -1539,7 +1765,7 @@
                     "default": {
                       "responseParameters": {
                         "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
-                        "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Methods": "'GET,DELETE,OPTIONS'",
                         "method.response.header.Access-Control-Allow-Origin": "'*'"
                       },
                       "statusCode": "200"
@@ -1550,6 +1776,46 @@
               }
             },
             "/workflow/{name}": {
+              "delete": {
+                "consumes": [
+                  "application/json"
+                ],
+                "description": "Returns:  \n\nRaises:\n    200: Workflow deleted sucessfully.\n    404: Not found\n    500: Internal server error ",
+                "parameters": [
+                  {
+                    "in": "path",
+                    "name": "name",
+                    "required": true,
+                    "type": "string"
+                  }
+                ],
+                "produces": [
+                  "application/json"
+                ],
+                "responses": {
+                  "200": {
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "summary": "Delete a workflow",
+                "x-amazon-apigateway-integration": {
+                  "contentHandling": "CONVERT_TO_TEXT",
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "responses": {
+                    "default": {
+                      "statusCode": "200"
+                    }
+                  },
+                  "type": "aws_proxy",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${APIHandler.Arn}/invocations"
+                  }
+                }
+              },
               "get": {
                 "consumes": [
                   "application/json"
@@ -1625,7 +1891,7 @@
                     "default": {
                       "responseParameters": {
                         "method.response.header.Access-Control-Allow-Headers": "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'",
-                        "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                        "method.response.header.Access-Control-Allow-Methods": "'GET,DELETE,OPTIONS'",
                         "method.response.header.Access-Control-Allow-Origin": "'*'"
                       },
                       "statusCode": "200"
@@ -1661,10 +1927,10 @@
         }
       }
     },
-    "RestAPIDeployment5cd5e888fb": {
+    "RestAPIDeployment64dbf0a60d": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
-        "Description": "RestApi deployment id: 5cd5e888fb61ce14c07c66bea161fc72c00b3f2d",
+        "Description": "RestApi deployment id: 64dbf0a60d1db15a29f644aa44da82ab76f0e384",
         "RestApiId": {
           "Ref": "RestAPI"
         },
@@ -1675,7 +1941,7 @@
       "Type": "AWS::ApiGateway::Stage",
       "Properties": {
         "DeploymentId": {
-          "Ref": "RestAPIDeployment5cd5e888fb"
+          "Ref": "RestAPIDeployment64dbf0a60d"
         },
         "RestApiId": {
           "Ref": "RestAPI"

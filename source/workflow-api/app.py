@@ -16,6 +16,9 @@ from datetime import datetime
 import json
 import time
 import decimal
+import signal
+#from urllib2 import build_opener, HTTPHandler, Request
+from urllib.request import build_opener, HTTPHandler, Request
 from chalicelib import awsmas
 
 APP_NAME = "workflow-api"
@@ -92,7 +95,7 @@ def index():
 
 
 @app.route('/workflow/operation', cors=True, methods=['POST'])
-def create_operation():
+def create_operation_api():
     """ Registers a new operator with the workflow engine
 
     The body defines the configuration parameters for the operator, the 
@@ -133,11 +136,21 @@ def create_operation():
         409: Conflict - an operation with the same name already exists
         500: Internal server error 
     """
+
+    
+    operation = app.current_request.json_body
+    logger.info(operation)
+
+    create_operation(operation)
+
+
+def create_operation(operation):
+        
     table_name = OPERATION_TABLE_NAME
 
     try:
+        print("create_operation()")
         table = DYNAMO_RESOURCE.Table(table_name)
-        operation = app.current_request.json_body
         logger.info(operation)
 
         # save operation configuration
@@ -150,9 +163,11 @@ def create_operation():
 
         checkRequiredInput("configuration", operation[name], "Operation Definition")
         checkRequiredInput("stateMachineArn", operation[name], "Operation Definition")
-        checkRequiredInput("stateMachineExecutionRoleArn", operation[name], "Operation Definition")
+        #checkRequiredInput("stateMachineExecutionRoleArn", operation[name], "Operation Definition")
         checkRequiredInput("mediaType", operation[name]["configuration"], "Operation Definition Configuartion")
         checkRequiredInput("enabled", operation[name]["configuration"], "Operation Configuration")
+
+        logger.info("Inputs are OK")
 
         operation["name"] = name
         operation['id'] = str(uuid.uuid4())
@@ -167,6 +182,8 @@ def create_operation():
 
             operation["stateMachineASL"] = response["definition"]
             logger.info(response)
+        elif "stateMachineAsl" in operation[name]:
+            logger.info("Got ASL for operation")
 
         table.put_item(
             Item=operation, 
@@ -186,7 +203,7 @@ def create_operation():
     except SFN_CLIENT.exceptions.NotFoundException as e:
         logger.error("SFN_CLIENT.exceptions.NotFoundException")
         raise BadRequestError("State machine ARN {} not found. Error: {}"
-                              .format(operation[name]["stateMachineArn"], e))
+                            .format(operation[name]["stateMachineArn"], e))
 
     except Exception as e:
         logger.error("Exception {}".format(e))
@@ -269,10 +286,11 @@ def delete_operation(name):
         500: Internal server error 
     """
     table = DYNAMO_RESOURCE.Table(OPERATION_TABLE_NAME)
+    operation = {}
 
     try: 
         
-        operation = None
+        operation = {}
         response = table.get_item(
             Key={
                 'name': name
@@ -281,14 +299,17 @@ def delete_operation(name):
         
         if "Item" in response:
             operation = response["Item"]
-        else:
-            raise NotFoundError(
-                "Exception: operation '%s' not found" % id)
 
-        response = table.delete_item(
+            response = table.delete_item(
             Key={
                 'name': name
-            })      
+            }) 
+
+        else:
+            
+            operation["message"] = "Warning: operation '{}' not found".format(name)
+            #raise NotFoundError(
+            #    "Exception: operation '%s' not found" % name) 
     
     except Exception as e:
 
@@ -310,7 +331,7 @@ def delete_operation(name):
 ################################################################################################
 
 @app.route('/workflow/stage', cors=True, methods=['POST'])
-def create_stage():
+def create_stage_api():
     """ Create a stage state machine from a list of existing operations.  
     
     A stage is a set of operations that are grouped so they can be executed in parallel.
@@ -349,15 +370,25 @@ def create_stage():
         409: Conflict
         500: Internal server error 
     """
+    
+    stage = None
+    
+    stage = app.current_request.json_body
+
+    logger.info(app.current_request.json_body)
+
+    stage = create_stage(stage)
+
+    return stage
+
+
+def create_stage(stage):
+
     try:
-        stage = None
+        stage_table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
         configuration = {}
 
-        stage_table = DYNAMO_RESOURCE.Table(STAGE_TABLE_NAME)
-
-        logger.info(app.current_request.json_body)
-
-        stage = app.current_request.json_body
+        logger.info(stage)
 
         checkRequiredInput("name", stage, "Stage Definition")
         checkRequiredInput("operations", stage, "Stage Definition")
@@ -518,7 +549,7 @@ def delete_stage(name):
 
     try: 
         
-        stage = None
+        stage = {}
         response = table.get_item(
             Key={
                 'name': name
@@ -527,22 +558,18 @@ def delete_stage(name):
         
         if "Item" in response:
             stage = response["Item"]
+
+            # Delete the stage state machine 
+            response = SFN_CLIENT.delete_state_machine(
+                stateMachineArn=stage["stateMachineArn"]
+            )
+
+            response = table.delete_item(
+                Key={
+                    'name': name
+                })
         else:
-            raise NotFoundError(
-                "Stage '%s' not found" % name)
-
-        # Delete the stage state machine 
-        response = SFN_CLIENT.delete_state_machine(
-            stateMachineArn=stage["stateMachineArn"]
-        )
-
-        response = table.delete_item(
-            Key={
-                'name': name
-            })      
-    
-    except NotFoundError as e:
-        raise
+            stage["message"] = "Warning: stage '{}' not found".format(name)
         
     except Exception as e:
 
@@ -563,7 +590,7 @@ def delete_stage(name):
 
 
 @app.route('/workflow', cors=True, methods=['POST'])
-def create_workflow():
+def create_workflow_api():
     """ Create a workflow from a list of existing stages.  
     
     A workflow is a pipeline of stages that are executed sequentially to transform and 
@@ -618,13 +645,21 @@ def create_workflow():
         500: Internal server error 
     """
 
+    workflow = app.current_request.json_body
+    logger.info(json.dumps(workflow))
+
+    return create_workflow("api", workflow)
+
+
+def create_workflow(trigger, workflow):
     try:
         workflow_table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
 
-        logger.info(app.current_request.json_body)
+        workflow["trigger"] = trigger
 
-        workflow = app.current_request.json_body
         logger.info(json.dumps(workflow))
+
+        
         #workflow["createTime"] = int(time.time())
 
         # Validate inputs
@@ -785,7 +820,7 @@ def delete_workflow(name):
 
     try: 
         
-        workflow = None
+        workflow = {}
         response = table.get_item(
             Key={
                 'name': name
@@ -794,17 +829,12 @@ def delete_workflow(name):
         
         if "Item" in response:
             workflow = response["Item"]
+            response = table.delete_item(
+                Key={
+                    'name': name
+                })   
         else:
-            raise NotFoundError(
-                "Workflow '%s' not found" % name)  
-
-        response = table.delete_item(
-            Key={
-                'name': name
-            })   
-    
-    except NotFoundError as e:
-        raise
+            workflow["Message"] = "Workflow '%s' not found" % name
         
     except Exception as e:
 
@@ -1244,3 +1274,177 @@ def delete_workflow_execution(id):
 
 
 
+# ================================================================================================
+#   ____          _                    ____                                    
+#   / ___|   _ ___| |_ ___  _ __ ___   |  _ \ ___  ___  ___  _   _ _ __ ___ ___ 
+#  | |  | | | / __| __/ _ \| '_ ` _ \  | |_) / _ \/ __|/ _ \| | | | '__/ __/ _ \
+#  | |__| |_| \__ \ || (_) | | | | | | |  _ <  __/\__ \ (_) | |_| | | | (_|  __/
+#   \____\__,_|___/\__\___/|_| |_| |_| |_| \_\___||___/\___/ \__,_|_|  \___\___|
+#
+# ================================================================================================
+
+
+@app.lambda_function()
+def workflow_custom_resource(event, context): 
+    '''Handle Lambda event from AWS CloudFormation'''
+    # Setup alarm for remaining runtime minus a second
+    signal.alarm(int(context.get_remaining_time_in_millis() / 1000) - 1)
+
+    # send_response(event, context, "SUCCESS",
+    #                     {"Message": "Resource deletion successful!"})
+    try:
+        logger.info('REQUEST RECEIVED:\n %s', event)
+        logger.info('REQUEST RECEIVED:\n %s', context)
+        
+        if event["ResourceProperties"]["ResourceType"] == "Operation":
+            logger.info("Operation!!")
+            operation_resource(event, context)
+
+        elif event["ResourceProperties"]["ResourceType"] == "Stage":
+            stage_resource(event, context)
+
+        elif event["ResourceProperties"]["ResourceType"] == "Workflow":
+            workflow_resource(event, context) 
+        else:
+            logger.info('FAILED!')
+            send_response(event, context, "FAILED",
+                        {"Message": "Unexpected resource type received from CloudFormation"})
+
+        
+    except Exception as e:
+
+        logger.info('FAILED!')
+        send_response(event, context, "FAILED", {
+            "Message": "Exception during processing: '%s'" % e})
+
+def operation_resource(event, context):
+
+    operation = {}
+
+    if event['RequestType'] == 'Create':
+            logger.info('CREATE!')
+
+            
+            operation[event["ResourceProperties"]["name"]] = event["ResourceProperties"]
+
+            create_operation(operation)
+            
+            send_response(event, context, "SUCCESS",
+                          {"Message": "Resource creation successful!", "name": event["ResourceProperties"]["name"]})
+
+    elif event['RequestType'] == 'Update':
+        logger.info('UPDATE!')
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource update successful!"})
+    elif event['RequestType'] == 'Delete':
+        logger.info('DELETE!')
+
+        name = event["ResourceProperties"]["name"]
+        
+        
+        delete_operation(name)
+
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource deletion successful!"})
+    else:
+        logger.info('FAILED!')
+        send_response(event, context, "FAILED",
+                        {"Message": "Unexpected event received from CloudFormation"})
+
+    return operation
+
+def stage_resource(event, context):
+    stage = event["ResourceProperties"]
+
+    if event['RequestType'] == 'Create':
+            logger.info('CREATE!')
+
+            create_stage(stage)
+            
+            send_response(event, context, "SUCCESS",
+                          {"Message": "Resource creation successful!", "name": event["ResourceProperties"]["name"], "stateMachineArn":event["ResourceProperties"]["stateMachineArn"] })
+            
+    elif event['RequestType'] == 'Update':
+        logger.info('UPDATE!')
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource update successful!"})
+    elif event['RequestType'] == 'Delete':
+        logger.info('DELETE!')
+
+        name = event["ResourceProperties"]["name"]
+        
+        delete_stage(name)
+
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource deletion successful!"})
+    else:
+        logger.info('FAILED!')
+        send_response(event, context, "FAILED",
+                        {"Message": "Unexpected event received from CloudFormation"})
+
+    return stage
+
+def workflow_resource(event, context):
+    workflow = event["ResourceProperties"]
+
+    logger.info(json.dumps(workflow))
+
+    if event['RequestType'] == 'Create':
+            logger.info('CREATE!')
+
+            workflow["Stages"] = json.loads(event["ResourceProperties"]["Stages"])
+
+            create_workflow("custom-resource", workflow)
+
+            send_response(event, context, "SUCCESS",
+                          {"Message": "Resource creation successful!"})
+    elif event['RequestType'] == 'Update':
+        logger.info('UPDATE!')
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource update successful!"})
+    elif event['RequestType'] == 'Delete':
+        logger.info('DELETE!')
+
+        name = event["ResourceProperties"]["name"]
+        
+        delete_workflow(name)
+
+        send_response(event, context, "SUCCESS",
+                        {"Message": "Resource deletion successful!"})
+    else:
+        logger.info('FAILED!')
+        send_response(event, context, "FAILED",
+                        {"Message": "Unexpected event received from CloudFormation"})
+
+    return workflow
+
+
+def send_response(event, context, response_status, response_data):
+    '''Send a resource manipulation status response to CloudFormation'''
+    response_body = json.dumps({
+        "Status": response_status,
+        "Reason": "See the details in CloudWatch Log Stream: " + context.log_stream_name,
+        "PhysicalResourceId": context.log_stream_name,
+        "StackId": event['StackId'],
+        "RequestId": event['RequestId'],
+        "LogicalResourceId": event['LogicalResourceId'],
+        "Data": response_data
+    })
+
+    logger.info('ResponseURL: %s', event['ResponseURL'])
+    logger.info('ResponseBody: %s', response_body)
+
+    opener = build_opener(HTTPHandler)
+    request = Request(event['ResponseURL'], data=response_body.encode('utf-8'))
+    request.add_header('Content-Type', '')
+    request.add_header('Content-Length', len(response_body))
+    request.get_method = lambda: 'PUT'
+    response = opener.open(request)
+    logger.info("Status code: %s", response.getcode())
+    logger.info("Status message: %s", response.msg)
+
+
+def timeout_handler(_signal, _frame):
+    '''Handle SIGALRM'''
+    raise Exception('Time exceeded')
+                                                                              

@@ -1,14 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution workflow management resources using Amazon Elasticsearch.
 
-Parameters:
-  MediaAnalysisPreprocessFunction:
-      Type: String
-      Description: "ARN of the Media Analysis Preprocess Lambda function"
-  MediaAnalysisPreprocessStateMachineRole:
-      Type: String
-      Description: "Name of the Media Analysis state machine role"
-
 Mappings:
     SourceCode:
         General:
@@ -218,6 +210,14 @@ Resources:
                     - CompleteStageLambda
                     - Arn 
 
+
+    
+# Outputs:
+#   Message:
+#     Description: The message from the custom resource.
+#     Value: !GetAtt 'CustomResource.Message'
+
+
 Outputs:
   WorkflowTable:
     Description: Workflow definition table
@@ -244,3 +244,10 @@ Outputs:
     Value: !Ref StageExecutionQueue
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", StageExecutionQueue ] ]
+  WorkflowCustomResourceArn:
+    Description: Custom resource for creating operations, stages and workflows using CloudFormation
+    Value: !GetAtt MediaAnalysisWorkflowApiStack.Outputs.WorkflowCustomResourceArn
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", WorkflowCustomResourceArn ] ]
+
+  

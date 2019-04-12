@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: (SO0042-workflow) Media Analysis Solution - The AWS CloudFormation template that provisions the Media Analysis Solution test operations resources using Amazon Elasticsearch.
 
+Parameters:
+  WorkflowCustomResourceArn:
+      Type: String
+      Description: "ARN of the Media Analysis custom resource that handles creating operations, stages and workflows"
+
 Mappings:
     SourceCode:
         General:
@@ -104,7 +109,7 @@ Resources:
                 Effect: "Allow"
 
   
-# Step function
+# Operator Base Step function
 
   TestVideoStepFunction:
     Type: "AWS::StepFunctions::StateMachine"
@@ -142,4 +147,60 @@ Resources:
           }
         }
       RoleArn: !GetAtt "StepFunctionRole.Arn"
+
+  # Build operators 
+  TestVideoOperationCustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Operation"
+      name: "test-video-operation"
+      configuration: 
+          {
+            "mediaType": "video",
+            "enabled": true
+          }
+      stateMachineArn: !Ref TestVideoStepFunction
+      stateMachineExecutionRoleArn: !GetAtt TestExecutionRole.Arn
+
+  TestVideoStageCustomResource:
+    DependsOn: TestVideoOperationCustomResource
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Stage"
+      name: "test-video-stage"
+      operations:
+        - test-video-operation
+      stateMachineArn: !Ref TestVideoStepFunction
+      stateMachineExecutionRoleArn: !GetAtt TestExecutionRole.Arn
+
+  TestVideoWorkflowCustomResource:
+    DependsOn: TestVideoStageCustomResource
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !Ref WorkflowCustomResourceArn
+      ResourceType: "Workflow"
+      name: "TestVideoWorkflow"
+      Stages: !Sub |-
+        {
+          "test-video-stage":
+            {
+            "End": true
+          }
+        }
+      StartAt: test-video-stage
+
+    # Build stages
+
+    # Build workflows
+
+Outputs:
+  TestVideoOperation:
+    Description: Video type operation for testing
+    Value: !GetAtt "TestVideoOperationCustomResource.name"
+  TestVideoStage:
+    Value: !GetAtt "TestVideoStageCustomResource.name"
+  TestVideoStageStateMachineArn:
+    Value: !GetAtt "TestVideoStageCustomResource.stateMachineArn"
 
