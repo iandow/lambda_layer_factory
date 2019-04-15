@@ -94,8 +94,6 @@ sed -i '' -e $replace "$dist_dir/media-analysis-deploy.template"
 echo "cp $template_dir/media-analysis-api-stack.yaml $dist_dir/media-analysis-api-stack.template"
 cp "$template_dir/media-analysis-api-stack.yaml" "$dist_dir/media-analysis-api-stack.template"
 
-
-
 # Copy storage template to dist directory and update bucket name
 echo "cp $template_dir/media-analysis-storage-stack.yaml $dist_dir/media-analysis-storage-stack.template"
 cp "$template_dir/media-analysis-storage-stack.yaml" "$dist_dir/media-analysis-storage-stack.template"
@@ -155,8 +153,8 @@ echo "Copying operations template to dist directory"
 echo "cp $template_dir/media-analysis-test-operations-stack.yaml $dist_dir/media-analysis-test-operations-stack.template"
 cp "$template_dir/media-analysis-test-operations-stack.yaml" "$dist_dir/media-analysis-test-operations-stack.template"
 
-echo "Updating code source bucket in operations template with '$bucket_basename'"
-replace="s/%%BUCKET_NAME%%/$bucket_basename/g"
+echo "Updating code source bucket in operations template with '$bucket'"
+replace="s/%%BUCKET_NAME%%/$bucket/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-test-operations-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-test-operations-stack.template"
 
@@ -164,7 +162,6 @@ echo "Replacing solution version in template with '$2'"
 replace="s/%%VERSION%%/$2/g"
 echo "sed -i '' -e $replace $dist_dir/media-analysis-test-operations-stack.template"
 sed -i '' -e $replace "$dist_dir/media-analysis-test-operations-stack.template"
-
 
 # Copy state machine template to dist directory
 echo "cp $template_dir/media-analysis-preprocess-state-machine-stack.yaml $dist_dir/media-analysis-preprocess-state-machine-stack.template"
@@ -654,6 +651,11 @@ popd
 zip -g dist/test_operations.zip *.py
 
 cp "./dist/test_operations.zip" "$dist_dir/test_operations.zip"
+
+echo "------------------------------------------------------------------------------"
+echo "Building Lambda Layers"
+echo "------------------------------------------------------------------------------"
+cp $source_dir/lambda_layers/boto3-python3.7.zip $dist_dir/
 
 echo "------------------------------------------------------------------------------"
 echo "Analysis2 Function"
