@@ -1,22 +1,15 @@
 # Instructions for building AWS Lambda layers
 
 Media analysis operators are implemented as AWS Lambda functions. These functions should access library dependencies via Lambda layers so that you can:
-1) explicitly control which library versions your operator uses, and 
-2) avoid monolithic Lambda functions which are unnecessarily large, slow to deploy, and unable to be rendered in the AWS Lambda code editor.
+
+* explicitly control which library versions your operator uses, and 
+* avoid monolithic Lambda functions which are unnecessarily large, slow to deploy, and unable to be rendered in the AWS Lambda code editor.
 
 The procedure below explains how to create a Lambda layer for any Python library:
 
 ### Preliminary AWS CLI Setup: 
-1. Install Docker on your workstation.
-2. Setup credentials for AWS CLI (see http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
-3. Create IAM Role with Lambda and S3 access:
-```
-# Create a role with S3 and Lambda exec access
-ROLE_NAME=lambda-opencv_study
-aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document '{"Version":"2012-10-17","Statement":{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}}'
-aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess --role-name $ROLE_NAME
-aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole --role-name $ROLE_NAME
-```
+1. Install [Docker](https://docs.docker.com/docker-for-mac/install/) on your workstation.
+
 
 ### Build ZIP files for Lambda layers using Docker
 
