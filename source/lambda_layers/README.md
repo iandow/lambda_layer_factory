@@ -7,7 +7,7 @@ Media analysis operators are implemented as AWS Lambda functions. These function
 
 The procedure below explains how to create a Lambda layer for any Python library:
 
-### Preliminary AWS CLI Setup: 
+### Prerequisites: 
 1. Install [Docker](https://docs.docker.com/docker-for-mac/install/) on your workstation.
 
 
