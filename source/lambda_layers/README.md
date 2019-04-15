@@ -30,12 +30,12 @@ cd MediaAnalysisSolution/source/lambda_layers
 
 2. Edit the Dockerfile and update each reference to OpenCV to specify the Python libraries you want to include in the Lambda layer. The rest of these instructions will assume you are packaging OpenCV as it's defined in the original Dockerfile.
 
-Build and run the Docker image:
+3. Build and run the Docker image:
 ```
 docker build --tag=lambda-layer-factory:latest .
 docker run --rm -it -v $(pwd):/data lambda-layer-factory cp /packages/cv2-python36.zip /data
 ```
 
-3. Ensure the docker generated zip file is saved in the `lambda_layers/` directory. The `build-s3-dist-copy.sh` script will look for them there, copy them to S3, and automatically generate the layer.
+4. Ensure the docker generated zip file is saved in the `lambda_layers/` directory. The `build-s3-dist-copy.sh` script will look for them there, copy them to S3, and automatically generate the layer.
 
 For more information, see [https://github.com/iandow/opencv_aws_lambda](https://github.com/iandow/opencv_aws_lambda)
