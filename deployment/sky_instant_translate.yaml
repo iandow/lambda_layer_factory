@@ -264,6 +264,29 @@ Resources:
                 Resource: "arn:aws:lambda:*:*:function:*"
                 Effect: "Allow"
 
+# Lambda Layers:
+
+  Boto3Python37Layer:
+    Type: "AWS::Lambda::LayerVersion"
+    DeletionPolicy: Retain
+    Properties:
+      CompatibleRuntimes: 
+        - python3.7
+      Content: 
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "boto3-python3.7.zip"]]
+      Description: Boto3 Layer
+      LayerName: boto3-python37
+      LicenseInfo: Apache-2.0
+
+  Boto3Python37LayerPermission:
+    Type: "AWS::Lambda::LayerVersionPermission"
+    DeletionPolicy: Retain
+    Properties:
+      Action: lambda:GetLayerVersion
+      LayerVersionArn: !Ref Boto3Python37Layer
+      Principal: !Ref AWS::AccountId
+
 # Lambda Functions:
 
   # Preprocess Lambdas
@@ -272,6 +295,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "start_media_convert.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -287,6 +312,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "get_media_convert.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "preprocessRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -303,6 +330,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "start_transcribe.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -317,6 +346,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "get_transcribe.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "transcribeRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -333,6 +364,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "start_translate.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "translateRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -349,6 +382,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "start_polly.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "pollyRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -363,6 +398,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "get_polly.lambda_handler"
+      Layers: 
+        - !Ref "Boto3Python37Layer"
       Role: !GetAtt "pollyRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
