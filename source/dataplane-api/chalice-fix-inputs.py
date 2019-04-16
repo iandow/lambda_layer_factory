@@ -30,7 +30,7 @@ def fix_chalice_sam_template():
                 "DATAPLANE_TABLE_NAME": {
                         "Ref":"DataplaneTableName"
                 },
-                "DATAPLANE_BUCKET_NAME": {
+                "DATAPLANE_BUCKET": {
                         "Ref":"DataplaneBucketName"
                 }
             }

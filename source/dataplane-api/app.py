@@ -23,7 +23,7 @@ DYNAMO_CLIENT = boto3.client('dynamodb')
 DYNAMO_RESOURCE = boto3.resource('dynamodb')
 
 # S3 resources
-DATAPLANE_S3_BUCKET = os.environ['DATAPLANE_BUCKET_NAME']
+DATAPLANE_S3_BUCKET = os.environ['DATAPLANE_BUCKET']
 
 # TODO: Should we add a variable for the upload bucket?
 

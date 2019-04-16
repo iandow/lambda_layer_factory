@@ -43,7 +43,15 @@ def fix_chalice_sam_template():
                 "Type": "String",
                 "Description": "Lambda that completes execution of a stage" 
                 },
+        "DataPlaneAPIEndpoint": {
+            "Type": "String",
+            "Description": "Rest endpoint for the dataplane"
+        },
+        "DataPlaneBucket": {
+            "Type": "String",
+            "Description": "S3 bucket of the dataplane"
         }
+    }
 
     environment = {
         "Variables": {
@@ -67,6 +75,12 @@ def fix_chalice_sam_template():
                 },
                 "STAGE_EXECUTION_ROLE": {
                         "Ref":"StageExecutionRole"
+                },
+                "DATAPLANE_ENDPOINT": {
+                    "Ref": "DataPlaneAPIEndpoint"
+                },
+                "DATAPLANE_BUCKET": {
+                    "Ref": "DataPlaneBucket"
                 }
             }
         }

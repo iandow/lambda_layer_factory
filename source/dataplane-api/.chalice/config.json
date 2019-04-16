@@ -3,7 +3,7 @@
   "app_name": "mas-dataplane",
   "environment_variables": {
     "DATAPLANE_TABLE_NAME": "",
-    "DATAPLANE_BUCKET_NAME": ""
+    "DATAPLANE_BUCKET": ""
   },
   "stages": {
     "dev": {

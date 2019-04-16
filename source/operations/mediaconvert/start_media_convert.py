@@ -1,8 +1,8 @@
 import os
 import boto3
 # TODO: Figure out how to build this module properly
-from mas_helper import OutputHelper
-from mas_helper import MasExecutionError
+from awsmie import OutputHelper
+from awsmie import MasExecutionError
 
 region = os.environ['AWS_REGION']
 mediaconvert_role = os.environ['mediaconvertRole']

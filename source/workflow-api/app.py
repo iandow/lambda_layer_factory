@@ -19,7 +19,8 @@ import decimal
 import signal
 #from urllib2 import build_opener, HTTPHandler, Request
 from urllib.request import build_opener, HTTPHandler, Request
-from chalicelib import awsmas
+from chalicelib.awsmie import DataPlane
+from chalicelib.awsmie import Status as awsmie
 
 APP_NAME = "workflow-api"
 API_STAGE = "dev"
@@ -173,7 +174,7 @@ def create_operation(operation):
         operation['id'] = str(uuid.uuid4())
         operation['createTime'] = int(time.time())
 
-        # FIXME get rid of opertion name as key in this
+        # FIXME get rid of operation name as key in this
         if "stateMachineArn" in operation[name]:
             logger.info("lookup state machine for operation")
             response = SFN_CLIENT.describe_state_machine(
@@ -949,14 +950,30 @@ def create_workflow_execution(trigger, workflow_execution):
     execution_table = DYNAMO_RESOURCE.Table(WORKFLOW_EXECUTION_TABLE_NAME)
 
     try:
-        
         name = workflow_execution["name"]
-        input = workflow_execution["input"]
+        input = workflow_execution['input']["media"]
+        media_type = list(input.keys())[0]
         configuration = workflow_execution["configuration"] if "configuration" in workflow_execution  else {}
         
         # BRANDON - make an asset
-        
-        workflow_execution = initialize_workflow_execution(trigger, name, input, configuration)
+
+        s3bucket = input[media_type]["s3bucket"]
+        s3key = input[media_type]["s3key"]
+
+        dataplane = DataPlane()
+        asset_creation = dataplane.create_asset(s3bucket, s3key)
+
+        asset_input = {
+                "media": {
+                    media_type: {
+                        "s3bucket": asset_creation["s3bucket"],
+                        "s3key": asset_creation["s3key"]
+                    }
+                }
+            }
+        asset_id = asset_creation["asset_id"]
+
+        workflow_execution = initialize_workflow_execution(trigger, name, asset_input, configuration, asset_id)
 
         execution_table.put_item(Item=workflow_execution)
 
@@ -969,7 +986,7 @@ def create_workflow_execution(trigger, workflow_execution):
 
     return workflow_execution
 
-def initialize_workflow_execution(trigger, name, input, configuration):
+def initialize_workflow_execution(trigger, name, input, configuration, asset_id):
     
     workflow_table = DYNAMO_RESOURCE.Table(WORKFLOW_TABLE_NAME)
 
@@ -1004,25 +1021,25 @@ def initialize_workflow_execution(trigger, name, input, configuration):
             raise ChaliceViewError("Exception: Invalid stage '%s'" % stage)
 
     for stage in workflow["Stages"]:
-        workflow["Stages"][stage]["status"] = awsmas.STAGE_STATUS_NOT_STARTED
+        workflow["Stages"][stage]["status"] = awsmie.STAGE_STATUS_NOT_STARTED
         workflow["Stages"][stage]["metrics"] = {}
         workflow["Stages"][stage]["name"] = stage
         workflow["Stages"][stage]["workflow_execution_id"] = workflow_execution["id"]
-        # BRANDON - add the asset id here
+        workflow["Stages"][stage]["asset_id"] = asset_id
         if "metadata" not in workflow["Stages"][stage]:
             workflow["Stages"][stage]["metadata"] = {}
 
     workflow_execution["workflow"] = workflow
     
     # initialize top level workflow_execution state from the workflow
-    workflow_execution["status"] = awsmas.WORKFLOW_STATUS_STARTED
+    workflow_execution["status"] = awsmie.WORKFLOW_STATUS_STARTED
     workflow_execution["current_stage"] = current_stage = workflow["StartAt"]
 
     # setup the current stage for execution
     workflow_execution["workflow"]["Stages"][current_stage]["input"] = workflow_execution["globals"]
     # workflow_execution["workflow"]["Stages"][current_stage]["metrics"]["queue_time"] = int(
     #    time.time())
-    workflow_execution["workflow"]["Stages"][current_stage]["status"] = awsmas.STAGE_STATUS_STARTED
+    workflow_execution["workflow"]["Stages"][current_stage]["status"] = awsmie.STAGE_STATUS_STARTED
 
     return workflow_execution
 
@@ -1050,7 +1067,7 @@ def start_first_stage_execution(trigger, workflow_execution):
         )
 
     except Exception as e:
-        workflow_execution["status"] = awsmas.WORKFLOW_STATUS_ERROR
+        workflow_execution["status"] = awsmie.WORKFLOW_STATUS_ERROR
         logger.info("Exception {}".format(e))
         raise ChaliceViewError("Exception: '%s'" % e)
     
@@ -1145,7 +1162,7 @@ def start_stage_execution(trigger, step_function_execution_arn, workflow_executi
 
         stage = workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]]
         stage['name'] = workflow_execution["current_stage"]
-        stage['status'] = awsmas.STAGE_STATUS_EXECUTING
+        stage['status'] = awsmie.STAGE_STATUS_EXECUTING
         stage['step_function_execution_arn'] = step_function_execution_arn
 
         workflow_execution["workflow"]["Stages"][workflow_execution["current_stage"]

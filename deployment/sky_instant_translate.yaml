@@ -45,9 +45,6 @@ Parameters:
   DataPlaneBucket:
     Type: "String"
     Description: "Bucket for the dataplane"
-  DataPlanePath:
-    Type: "String"
-    Description: "Prefix for the dataplane s3 bucket"
 
   WorkflowCustomResourceArn:
       Type: String
@@ -283,9 +280,8 @@ Resources:
       Environment:
         Variables:
           mediaconvertRole: !GetAtt "mediaConvertRole.Arn"
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   skyCheckMediaConvertFunction:
     Type: "AWS::Lambda::Function"
@@ -298,9 +294,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   # Transcribe Lambdas
 
@@ -315,9 +310,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   skyCheckTranscribeFunction:
     Type: "AWS::Lambda::Function"
@@ -330,9 +324,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   # Translate Lambdas
 
@@ -347,9 +340,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   # Polly Lambdas
 
@@ -364,9 +356,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
   skyCheckPollyFunction:
     Type: "AWS::Lambda::Function"
@@ -379,9 +370,8 @@ Resources:
       Runtime: "python3.7"
       Environment:
         Variables:
-          dataplane_base_url: !Ref "DataPlaneUrl"
-          dataplane_bucket: !Ref "DataPlaneBucket"
-          base_s3_key: !Ref "DataPlanePath"
+          DATAPLANE_ENDPOINT: !Ref "DataPlaneUrl"
+          DATAPLANE_BUCKET: !Ref "DataPlaneBucket"
 
 # Step Functions
 

@@ -6,9 +6,9 @@ import json
 region = os.environ['AWS_REGION']
 transcribe = boto3.client("transcribe")
 
-from mas_helper import OutputHelper
-from mas_helper import MasExecutionError
-from mas_helper import DataPlane
+from awsmie import OutputHelper
+from awsmie import MasExecutionError
+from awsmie import DataPlane
 
 operator_name = 'transcribe'
 output_object = OutputHelper(operator_name)

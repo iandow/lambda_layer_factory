@@ -210,8 +210,16 @@ Resources:
       Timeout: 900
     Type: AWS::Lambda::Function           
 
-  # Workflow creation and execution API
+  # DataPlane API Stack
+  MediaAnalysisDataplaneApiStack:
+        Type: "AWS::CloudFormation::Stack"
+        Properties:
+            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"] , !FindInMap ["SourceCode", "General", "TemplateKeyPrefix"], "media-analysis-dataplane-api-stack.template"]]
+            Parameters:
+              DataplaneTableName: !Ref DataplaneTable
+              DataplaneBucketName: !Ref DataplaneBucket
 
+  # Workflow creation and execution API
   MediaAnalysisWorkflowApiStack:
         Type: "AWS::CloudFormation::Stack"
         Properties:
@@ -226,16 +234,12 @@ Resources:
                 CompleteStageLambdaArn: 
                     Fn::GetAtt:
                     - CompleteStageLambda
-                    - Arn 
-
-  MediaAnalysisDataplaneApiStack:
-        Type: "AWS::CloudFormation::Stack"
-        Properties:
-            TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"] , !FindInMap ["SourceCode", "General", "TemplateKeyPrefix"], "media-analysis-dataplane-api-stack.template"]]
-            Parameters:
-              DataplaneTableName: !Ref DataplaneTable
-              DataplaneBucketName: !Ref DataplaneBucket
-              
+                    - Arn
+                DataPlaneAPIEndpoint:
+                    Fn::GetAtt:
+                      - MediaAnalysisDataplaneApiStack
+                      - Outputs.EndpointURL
+                DataPlaneBucket: !Ref DataplaneBucket
 Outputs:
   WorkflowTable:
     Description: Workflow definition table

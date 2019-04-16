@@ -1,8 +1,8 @@
 import boto3
 
-from mas_helper import OutputHelper
-from mas_helper import MasExecutionError
-from mas_helper import DataPlane
+from awsmie import OutputHelper
+from awsmie import MasExecutionError
+from awsmie import DataPlane
 
 translate_client = boto3.client('translate')
 s3 = boto3.client('s3')

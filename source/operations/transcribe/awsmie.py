@@ -1,11 +1,35 @@
+# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import urllib3
 import json
 import boto3
 import os
 
-base_url = os.environ['dataplane_base_url']
-dataplane_bucket = os.environ['dataplane_bucket']
-base_s3_key = os.environ['base_s3_key']
+''' Package for implementing operations for the AWS Media Analysis Solution
+'''
+
+base_url = os.environ['DATAPLANE_ENDPOINT']
+dataplane_bucket = os.environ['DATAPLANE_BUCKET']
+base_s3_key = 'private/media/'
+
+
+class Status:
+    WORKFLOW_STATUS_STARTED = "Started"
+    WORKFLOW_STATUS_ERROR = "Error"
+    WORKFLOW_STATUS_COMPLETE = "Complete"
+
+    STAGE_STATUS_NOT_STARTED = "Not Started"
+    STAGE_STATUS_STARTED = "Started"
+    STAGE_STATUS_EXECUTING = "Executing"
+    STAGE_STATUS_ERROR = "Error"
+    STAGE_STATUS_COMPLETE = "Complete"
+
+    OPERATION_STATUS_NOT_STARTED = "Not Started"
+    OPERATION_STATUS_STARTED = "Started"
+    OPERATION_STATUS_EXECUTING = "Executing"
+    OPERATION_STATUS_ERROR = "Error"
+    OPERATION_STATUS_COMPLETE = "Complete"
 
 
 class OutputHelper:
@@ -37,16 +61,39 @@ class MasExecutionError(Exception):
 # TODO: Add better exception handing for calls to the dataplane, should handle exceptions based on response code
 
 class DataPlane:
-    def __init__(self, asset_id, workflow_id):
+    def __init__(self, **kwargs):
+        self.base_s3_key = base_s3_key
         self.base_url = base_url
         self.http = urllib3.PoolManager()
-        self.asset_id = asset_id
-        self.s3_client = boto3.client("s3")
-        self.base_s3_key = base_s3_key
-        self.workflow_id = workflow_id
+        if "asset_id" in kwargs:
+            self.asset_id = kwargs["asset_id"]
+        if "workflow_id" in kwargs:
+            self.workflow_id = kwargs["workflow_id"]
+
+    def create_asset(self, s3bucket, s3key):
+        body = json.dumps({
+            "input": {
+                "s3bucket": s3bucket,
+                "s3key": s3key
+            }
+        })
+
+        url = self.base_url + 'data/' + 'create'
+
+        try:
+            response = self.http.request('POST', url, headers={'Content-Type': 'application/json'}, body=body)
+            response = response.data.decode('UTF-8')
+        except Exception as e:
+            raise Exception("Unable to create an asset in the dataplane: {e}".format(e=e))
+        else:
+            if "asset_id" not in response:
+                raise Exception("Unable to create an asset in the dataplane: {e}".format(e=response))
+            else:
+                print("Asset created: {asset}".format(asset=response))
+                return json.loads(response)
 
     def upload_metadata(self, operator_name, results):
-        url = self.base_url + self.asset_id
+        url = self.base_url + 'data/' + self.asset_id
         body = json.dumps({
             "operator_name": operator_name,
             "results": results
@@ -61,7 +108,7 @@ class DataPlane:
 
     def persist_media(self, **kwargs):
         # TODO: Add input checking to ensure kwargs isn't empty
-
+        s3_client = boto3.client("s3")
         # If S3bucket and S3key are included we'll just copy it into the dataplane s3bucket
         try:
             s3bucket = kwargs["s3bucket"]
@@ -77,7 +124,7 @@ class DataPlane:
             print(s3key)
             print(s3bucket)
             try:
-                self.s3_client.copy_object(
+                s3_client.copy_object(
                     Bucket=dataplane_bucket,
                     Key=new_key,
                     CopySource={'Bucket': s3bucket, 'Key': s3key}
@@ -99,7 +146,7 @@ class DataPlane:
         key = self.base_s3_key + self.asset_id + '/' + 'derived' + '/' + self.workflow_id + '/' + file_name
 
         try:
-            self.s3_client.put_object(Bucket=dataplane_bucket, Key=key, Body=data)
+            s3_client.put_object(Bucket=dataplane_bucket, Key=key, Body=data)
         except Exception as e:
             print("Unable to write data to s3:", e)
             return {"status": "failed", "message": e}

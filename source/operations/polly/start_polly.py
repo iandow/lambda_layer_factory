@@ -1,6 +1,6 @@
 import boto3
-from mas_helper import OutputHelper
-from mas_helper import MasExecutionError
+from awsmie import OutputHelper
+from awsmie import MasExecutionError
 
 polly = boto3.client('polly')
 s3 = boto3.client('s3')

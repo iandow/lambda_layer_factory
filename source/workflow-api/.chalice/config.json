@@ -8,7 +8,9 @@
     "STAGE_EXECUTION_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/526662735483/StageExecution",
     "OPERATION_TABLE_NAME": "mas-workflowOperation",
     "COMPLETE_STAGE_LAMBDA_ARN": "arn:aws:lambda:us-east-1:526662735483:function:mas-workflow-complete-workflow",
-    "STAGE_EXECUTION_ROLE": "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX"
+    "STAGE_EXECUTION_ROLE": "arn:aws:iam::526662735483:role/mas-workflow-StageExecutionRole-1WNYQT5SPL5QX",
+    "DATAPLANE_ENDPOINT": "",
+    "DATAPLANE_BUCKET": ""
 
     },
   "stages": {
