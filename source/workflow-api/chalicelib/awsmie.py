@@ -62,7 +62,7 @@ class MasExecutionError(Exception):
 
 class DataPlane:
     def __init__(self, **kwargs):
-        self.base_s3_key = 'private/media'
+        self.base_s3_key = base_s3_key
         self.base_url = base_url
         self.http = urllib3.PoolManager()
         if "asset_id" in kwargs:

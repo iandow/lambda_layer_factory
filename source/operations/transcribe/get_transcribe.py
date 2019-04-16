@@ -53,7 +53,7 @@ def lambda_handler(event, context):
 
                 # TODO: Do we want to fail the operator if we cannot upload metadata or persist media?
 
-                dataplane = DataPlane(asset_id, workflow_id)
+                dataplane = DataPlane(asset_id=asset_id, workflow_id=asset_id)
 
                 # Upload transcribe metadata for the asset
                 transcription_json = json.loads(transcription_data)

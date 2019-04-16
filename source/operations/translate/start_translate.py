@@ -63,7 +63,7 @@ def lambda_handler(event, context):
             output_object.update_metadata(translate_error="Unable to get response from translate: {e}".format(e=str(e)))
             raise MasExecutionError(output_object.return_output_object())
         else:
-            dataplane = DataPlane(asset_id, workflow_id)
+            dataplane = DataPlane(asset_id=asset_id, workflow_id=asset_id)
 
             # Upload translate metadata for asset in dataplane
             metadata_upload = dataplane.upload_metadata(operator_name, translation)

@@ -47,7 +47,7 @@ def lambda_handler(event, context):
 
             # persist polly media object
 
-            dataplane = DataPlane(asset_id, workflow_id)
+            dataplane = DataPlane(asset_id=asset_id, workflow_id=asset_id)
             persist_media = dataplane.persist_media(s3bucket=bucket, s3key=key)
             if persist_media["status"] == "failed":
                 output_object.update_status("Error")

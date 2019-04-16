@@ -6,7 +6,7 @@ from awsmie import MasExecutionError
 
 region = os.environ['AWS_REGION']
 mediaconvert_role = os.environ['mediaconvertRole']
-base_s3_key = os.environ['base_s3_key']
+
 
 mediaconvert = boto3.client("mediaconvert", region_name=region)
 
@@ -32,7 +32,7 @@ def lambda_handler(event, context):
         asset_id = ''
 
     file_input = "s3://" + bucket + "/" + key
-    destination = "s3://" + bucket + "/" + base_s3_key + asset_id + "/" + "derived" + "/" + workflow_id + "/"
+    destination = "s3://" + bucket + "/" + 'private/media/' + asset_id + "/" + "derived" + "/" + workflow_id + "/"
 
     try:
         response = mediaconvert.describe_endpoints()
