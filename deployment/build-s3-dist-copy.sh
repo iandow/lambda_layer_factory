@@ -226,8 +226,8 @@ fi
 
 popd
 
-zip -g dist/start_media_convert.zip start_media_convert.py mas_helper.py
-zip -g dist/get_media_convert.zip get_media_convert.py mas_helper.py
+zip -g dist/start_media_convert.zip start_media_convert.py awsmie.py
+zip -g dist/get_media_convert.zip get_media_convert.py awsmie.py
 
 cp "./dist/start_media_convert.zip" "$dist_dir/start_media_convert.zip"
 cp "./dist/get_media_convert.zip" "$dist_dir/get_media_convert.zip"
@@ -290,8 +290,8 @@ fi
 
 popd
 
-zip -g dist/start_transcribe.zip start_transcribe.py mas_helper.py
-zip -g dist/get_transcribe.zip get_transcribe.py mas_helper.py
+zip -g dist/start_transcribe.zip start_transcribe.py awsmie.py
+zip -g dist/get_transcribe.zip get_transcribe.py awsmie.py
 
 cp "./dist/start_transcribe.zip" "$dist_dir/start_transcribe.zip"
 cp "./dist/get_transcribe.zip" "$dist_dir/get_transcribe.zip"
@@ -347,7 +347,7 @@ fi
 
 popd
 
-zip -g dist/start_translate.zip start_translate.py mas_helper.py
+zip -g dist/start_translate.zip start_translate.py awsmie.py
 
 cp "./dist/start_translate.zip" "$dist_dir/start_translate.zip"
 
@@ -410,8 +410,8 @@ fi
 
 popd
 
-zip -g dist/start_polly.zip start_polly.py mas_helper.py
-zip -g dist/get_polly.zip get_polly.py mas_helper.py
+zip -g dist/start_polly.zip start_polly.py awsmie.py
+zip -g dist/get_polly.zip get_polly.py awsmie.py
 
 cp "./dist/start_polly.zip" "$dist_dir/start_polly.zip"
 cp "./dist/get_polly.zip" "$dist_dir/get_polly.zip"
@@ -475,8 +475,8 @@ fi
 
 popd
 
-zip -g dist/start_key_phrases.zip start_key_phrases.py mas_helper.py
-zip -g dist/get_key_phrases.zip get_key_phrases.py mas_helper.py
+zip -g dist/start_key_phrases.zip start_key_phrases.py awsmie.py
+zip -g dist/get_key_phrases.zip get_key_phrases.py awsmie.py
 
 cp "./dist/start_key_phrases.zip" "$dist_dir/start_key_phrases.zip"
 cp "./dist/get_key_phrases.zip" "$dist_dir/get_key_phrases.zip"
