@@ -29,12 +29,12 @@ def lambda_handler(event, context):
         try:
             bucket = event["input"]["media"]["audio"]["s3bucket"]
             key = event["input"]["media"]["audio"]["s3key"]
-            file_type = key.split(".")[1]
+            file_type = os.path.splitext(key)[1]
         # TODO: Do we want to add support for video?
         except KeyError:
             bucket = event["input"]["media"]["video"]["s3bucket"]
             key = event["input"]["media"]["video"]["s3key"]
-            file_type = key.split(".")[1]
+            file_type = os.path.splitext(key)[1]
         except Exception:
             output_object.update_status("Error")
             output_object.update_metadata(transcribe_error="No valid inputs")
