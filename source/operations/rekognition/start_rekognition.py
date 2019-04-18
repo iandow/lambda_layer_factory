@@ -10,7 +10,7 @@
 #   zip start_rekognition.zip start_rekognition.py; aws s3 cp start_rekognition.zip s3://ianwow/
 #   cd ../../../deployment
 #   aws cloudformation delete-stack --stack-name iantest01
-#   aws cloudformation create-stack --stack-name iantest02 --template-body file://rekognition_test.yaml --capabilities CAPABILITY_IAM
+#   aws cloudformation create-stack --stack-name iantest02 --template-body file://rekognition.yaml --capabilities CAPABILITY_IAM
 #
 # SAMPLE USAGE:
 #     FUNCTION_NAME=iantest02-rekognitionFunction-GWOFHB03EOHA
@@ -38,14 +38,14 @@ def start_image_label_detection(bucket, key):
     print('Detected labels for ' + key)
     for label in response['Labels']:
         print (label['Name'] + ' : ' + str(label['Confidence']))
-    return
+    return response['Labels']
 
 # Code for calling Rekognition Video operations
 # Reference: https://docs.aws.amazon.com/code-samples/latest/catalog/python-rekognition-rekognition-video-python-stored-video.py.html
 def start_video_label_detection(bucket, key):
     rek = boto3.client('rekognition')
     jobFound = False
-    queueUrl=''
+    queueUrl=os.environ['REKOGNITION_SQS_QUEUE_URL']
     sqs = boto3.client('sqs')
     response = rek.start_label_detection(
         Video={
@@ -59,49 +59,51 @@ def start_video_label_detection(bucket, key):
             'RoleArn': os.environ['REKOGNITION_ROLE_ARN']
         })
     print('Start Job Id: ' + response['JobId'])
-    dotLine=0
-    while jobFound == False:
-        sqsResponse = sqs.receive_message(QueueUrl=queueUrl, MessageAttributeNames=['ALL'], MaxNumberOfMessages=10)
-        if sqsResponse:
-            if 'Messages' not in sqsResponse:
-                if dotLine<20:
-                    print('.', end='')
-                    dotLine=dotLine+1
-                else:
-                    print()
-                    dotLine=0
-                sys.stdout.flush()
-                continue
+    return response['JobId']
 
-            for message in sqsResponse['Messages']:
-                notification = json.loads(message['Body'])
-                rekMessage = json.loads(notification['Message'])
-                print(rekMessage['JobId'])
-                print(rekMessage['Status'])
-                if str(rekMessage['JobId']) == response['JobId']:
-                    print('Matching Job Found:' + rekMessage['JobId'])
-                    jobFound = True
-                    #Change to match the start function earlier in this code.
-                    #=============================================
-                    GetResultsLabels(rekMessage['JobId'])
-                    #self.GetResultsFaces(rekMessage['JobId'])
-                    #self.GetResultsFaceSearchCollection(rekMessage['JobId'])
-                    #self.GetResultsPersons(rekMessage['JobId'])
-                    #self.GetResultsCelebrities(rekMessage['JobId'])
-                    #self.GetResultsModerationLabels(rekMessage['JobId'])
+    # dotLine=0
+    # while jobFound == False:
+    #     sqsResponse = sqs.receive_message(QueueUrl=queueUrl, MessageAttributeNames=['ALL'], MaxNumberOfMessages=10)
+    #     if sqsResponse:
+    #         if 'Messages' not in sqsResponse:
+    #             if dotLine<20:
+    #                 print('.', end='')
+    #                 dotLine=dotLine+1
+    #             else:
+    #                 print()
+    #                 dotLine=0
+    #             sys.stdout.flush()
+    #             continue
+    #
+    #         for message in sqsResponse['Messages']:
+    #             notification = json.loads(message['Body'])
+    #             rekMessage = json.loads(notification['Message'])
+    #             print(rekMessage['JobId'])
+    #             print(rekMessage['Status'])
+    #             if str(rekMessage['JobId']) == response['JobId']:
+    #                 print('Matching Job Found:' + rekMessage['JobId'])
+    #                 jobFound = True
+    #                 #Change to match the start function earlier in this code.
+    #                 #=============================================
+    #                 GetResultsLabels(rekMessage['JobId'])
+    #                 #self.GetResultsFaces(rekMessage['JobId'])
+    #                 #self.GetResultsFaceSearchCollection(rekMessage['JobId'])
+    #                 #self.GetResultsPersons(rekMessage['JobId'])
+    #                 #self.GetResultsCelebrities(rekMessage['JobId'])
+    #                 #self.GetResultsModerationLabels(rekMessage['JobId'])
+    #
+    #                 #=============================================
+    #
+    #                 sqs.delete_message(QueueUrl=queueUrl,
+    #                                    ReceiptHandle=message['ReceiptHandle'])
+    #             else:
+    #                 print("Job didn't match:" +
+    #                       str(rekMessage['JobId']) + ' : ' + str(response['JobId']))
+    #             # Delete the unknown message. Consider sending to dead letter queue
+    #             sqs.delete_message(QueueUrl=queueUrl,
+    #                                ReceiptHandle=message['ReceiptHandle'])
 
-                    #=============================================
-
-                    sqs.delete_message(QueueUrl=queueUrl,
-                                       ReceiptHandle=message['ReceiptHandle'])
-                else:
-                    print("Job didn't match:" +
-                          str(rekMessage['JobId']) + ' : ' + str(response['JobId']))
-                # Delete the unknown message. Consider sending to dead letter queue
-                sqs.delete_message(QueueUrl=queueUrl,
-                                   ReceiptHandle=message['ReceiptHandle'])
-
-    print('done')
+    # print('done')
 
 # Gets the results of labels detection by calling GetLabelDetection. Label
 # detection is started by a call to StartLabelDetection.
@@ -150,6 +152,8 @@ def GetResultsLabels(self, jobId):
 
 # Lambda function entrypoint:
 def lambda_handler(event, context):
+    jobid=''
+    response=''
     for record in event['media']['file']:
         s3bucket = record['s3bucket']
         s3key = record['s3key']
@@ -159,12 +163,12 @@ def lambda_handler(event, context):
         file_type = os.path.splitext(s3key)[1]
 
         if file_type in valid_image_types:
-            start_image_label_detection(
+            response = start_image_label_detection(
                 s3bucket,
                 urllib.parse.unquote_plus(s3key)
             )
         elif file_type in valid_video_types:
-            start_video_label_detection(
+            jobid = start_video_label_detection(
                 s3bucket,
                 urllib.parse.unquote_plus(s3key)
             )
@@ -174,5 +178,5 @@ def lambda_handler(event, context):
             #     output_object.update_status("Error")
             #     output_object.update_metadata(transcribe_error="Not a valid file type")
             #     raise MasExecutionError(output_object.return_output_object())
-    return
+    return {"response": response, "jobid": jobid}
 

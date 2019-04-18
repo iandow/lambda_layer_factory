@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Mappings:
+    SourceCode:
+        General:
+            S3Bucket: 'ianwow'
+
+Resources:
+
+  # IAM Roles:
+  rekognitionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+            - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: "pass-role-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - iam:PassRole
+                Resource: "*"
+                Effect: "Allow"
+        - PolicyName: "RekognitionSNSPublishPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - sns:Publish
+                Resource: !Ref "snsRekognitionTopic"
+                Effect: "Allow"
+
+  stepFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "states.amazonaws.com"
+      Policies:
+        -
+          PolicyName: "rekognitionStepFuncLambdaAccess"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "lambda:InvokeFunction"
+                Resource: "arn:aws:lambda:*:*:function:*"
+                Effect: "Allow"
+
+  # SQS queue for checking Rekognition job status:
+  sqsRekognitionQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: "iantestSQS01"
+
+  # SNS topic for storing the output of async Rekognition jobs:
+  snsRekognitionTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: "SNS Role for Rekognition"
+      TopicName: "iantestSNS01"
+
+  # Lambda functions:
+  rekognitionFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "start_rekognition.lambda_handler"
+      Role: !GetAtt "rekognitionRole.Arn"
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: "start_rekognition.zip"
+      Runtime: "python3.7"
+      Timeout: 300
+      Environment:
+        Variables:
+          "REKOGNITION_SQS_QUEUE_URL": !Ref "sqsRekognitionQueue"
+          "REKOGNITION_SNS_TOPIC_ARN": !Ref "snsRekognitionTopic"
+          "REKOGNITION_ROLE_ARN": !GetAtt "rekognitionRole.Arn"
+
+  checkRekognitionFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "get_rekognition_status.lambda_handler"
+      Role: !GetAtt "rekognitionRole.Arn"
+      Code:
+        S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
+        S3Key: "get_rekognition_status.zip"
+      Runtime: "python3.7"
+      Timeout: 300
+      Environment:
+        Variables:
+          "REKOGNITION_SQS_QUEUE_URL": !Ref "sqsRekognitionQueue"
+          "REKOGNITION_SNS_TOPIC_ARN": !Ref "snsRekognitionTopic"
+          "REKOGNITION_ROLE_ARN": !GetAtt "rekognitionRole.Arn"
+
+  # Step Functions:
+  rekognitionStepFunction:
+     Type: "AWS::StepFunctions::StateMachine"
+     Properties:
+       StateMachineName: "rekognitionStateMachine"
+       DefinitionString: !Sub |-
+         {
+          "StartAt": "Is rekognition Enabled?",
+          "States": {
+              "Is rekognition Enabled?": {
+                  "Type": "Choice",
+                  "Choices": [{
+                      "Variable": "$.configuration.rekognition.enabled",
+                         "BooleanEquals": true,
+                      "Next": "Execute rekognition"
+                  }],
+                  "Default": "rekognition Not Started"
+              },
+              "rekognition Not Started": {
+                  "Type": "Succeed"
+              },
+              "Execute rekognition": {
+                  "Type": "Task",
+                  "Resource": "${rekognitionFunction.Arn}",
+                  "ResultPath": "$.outputs",
+                  "OutputPath": "$.outputs",
+                  "Next": "rekognition Wait",
+                  "Retry": [ {
+                          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                      "IntervalSeconds": 3,
+                      "MaxAttempts": 100,
+                      "BackoffRate": 2
+                  }
+                  ],
+                  "Catch": [
+                     {
+                        "ErrorEquals": ["States.ALL"],
+                        "Next": "rekognition Failed",
+                        "ResultPath": "$.outputs"
+                     }
+                  ]
+              },
+              "rekognition Wait": {
+                  "Type": "Wait",
+                  "Seconds": 10,
+                  "Next": "Get rekognition Status"
+              },
+              "Get rekognition Status": {
+                  "Type": "Task",
+                  "Resource": "${checkRekognitionFunction.Arn}",
+                  "Next": "Did rekognition Complete",
+                  "Retry": [ {
+                          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.Unknown", "MasExecutionError"],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                  }
+                  ],
+                  "Catch": [
+                     {
+                        "ErrorEquals": ["States.ALL"],
+                        "Next": "rekognition Failed",
+                        "ResultPath": "$.outputs"
+                     }
+                  ]
+              },
+              "Did rekognition Complete": {
+                  "Type": "Choice",
+                  "Choices": [{
+                          "Variable": "$.status",
+                          "StringEquals": "Executing",
+                          "Next": "rekognition Wait"
+                      },
+                      {
+                          "Variable": "$.status",
+                          "StringEquals": "Complete",
+                          "Next": "rekognition Succeeded"
+                      }
+                  ],
+                  "Default": "rekognition Failed"
+              },
+              "rekognition Failed": {
+                  "Type": "Fail"
+              },
+              "rekognition Succeeded": {
+                  "Type": "Succeed"
+              }
+          }
+         }
+       RoleArn: !GetAtt "stepFunctionRole.Arn"
