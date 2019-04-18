@@ -7,7 +7,5 @@ region = os.environ['AWS_REGION']
 transcribe = boto3.client("rekognition")
 
 def lambda_handler(event, context):
-    print(event)
-    print(event['outputs'])
 
     return {"status": "Complete"}
