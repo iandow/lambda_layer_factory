@@ -66,15 +66,12 @@ Resources:
   # SQS queue for checking Rekognition job status:
   sqsRekognitionQueue:
     Type: "AWS::SQS::Queue"
-    Properties:
-      QueueName: "iantestSQS01"
 
   # SNS topic for storing the output of async Rekognition jobs:
   snsRekognitionTopic:
     Type: "AWS::SNS::Topic"
     Properties:
       DisplayName: "SNS Role for Rekognition"
-      TopicName: "iantestSNS01"
 
   # Lambda functions:
   rekognitionFunction:
