@@ -8,7 +8,9 @@ transcribe = boto3.client("rekognition")
 
 def lambda_handler(event, context):
     print(event)
-
+    sqs = boto3.client('sqs')
+    queueUrl=os.environ['REKOGNITION_SQS_QUEUE_URL']
+    sqsResponse = sqs.receive_message(QueueUrl=queueUrl, MessageAttributeNames=['ALL'], MaxNumberOfMessages=10)
 
     # dotLine=0
     # while jobFound == False:
@@ -54,8 +56,40 @@ def lambda_handler(event, context):
 
     # print('done')
 
+    if sqsResponse:
+        if 'Messages' in sqsResponse:
+            for message in sqsResponse['Messages']:
+                notification = json.loads(message['Body'])
+                rekMessage = json.loads(notification['Message'])
+                print(rekMessage['JobId'])
+                print(rekMessage['Status'])
+                if str(rekMessage['JobId']) == event['jobid']:
+                    print('Matching Job Found:' + rekMessage['JobId'])
+                    jobFound = True
+                    #Change to match the start function earlier in this code.
+                    #=============================================
+                    GetResultsLabels(rekMessage['JobId'])
+                    #self.GetResultsFaces(rekMessage['JobId'])
+                    #self.GetResultsFaceSearchCollection(rekMessage['JobId'])
+                    #self.GetResultsPersons(rekMessage['JobId'])
+                    #self.GetResultsCelebrities(rekMessage['JobId'])
+                    #self.GetResultsModerationLabels(rekMessage['JobId'])
 
-    return {"status": "Complete"}
+                    #=============================================
+
+                    sqs.delete_message(QueueUrl=queueUrl,
+                                       ReceiptHandle=message['ReceiptHandle'])
+                else:
+                    print("Job didn't match:" +
+                          str(rekMessage['JobId']) + ' : ' + str(event['jobid']))
+                # Delete the unknown message. Consider sending to dead letter queue
+                sqs.delete_message(QueueUrl=queueUrl,
+                                   ReceiptHandle=message['ReceiptHandle'])
+            return {"status": "Complete"}
+        else:
+            return {"status": "Incomplete"}
+
+    return {"status": "Incomplete"}
 
 # Gets the results of labels detection by calling GetLabelDetection. Label
 # detection is started by a call to StartLabelDetection.

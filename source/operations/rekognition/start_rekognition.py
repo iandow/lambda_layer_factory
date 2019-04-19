@@ -44,9 +44,6 @@ def start_image_label_detection(bucket, key):
 # Reference: https://docs.aws.amazon.com/code-samples/latest/catalog/python-rekognition-rekognition-video-python-stored-video.py.html
 def start_video_label_detection(bucket, key):
     rek = boto3.client('rekognition')
-    jobFound = False
-    queueUrl=os.environ['REKOGNITION_SQS_QUEUE_URL']
-    sqs = boto3.client('sqs')
     response = rek.start_label_detection(
         Video={
             'S3Object': {

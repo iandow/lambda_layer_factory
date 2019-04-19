@@ -110,7 +110,6 @@ Resources:
   rekognitionStepFunction:
      Type: "AWS::StepFunctions::StateMachine"
      Properties:
-       StateMachineName: "rekognitionStateMachine"
        DefinitionString: !Sub |-
          {
           "StartAt": "Is rekognition Enabled?",
@@ -176,7 +175,7 @@ Resources:
                   "Type": "Choice",
                   "Choices": [{
                           "Variable": "$.status",
-                          "StringEquals": "Executing",
+                          "StringEquals": "Incomplete",
                           "Next": "rekognition Wait"
                       },
                       {
