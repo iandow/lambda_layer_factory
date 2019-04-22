@@ -60,7 +60,7 @@ def start_video_label_detection(bucket, key):
 
 # Lambda function entrypoint:
 def lambda_handler(event, context):
-    jobid=''
+    JobId=''
     response=''
     for record in event['media']['file']:
         s3bucket = record['s3bucket']
@@ -76,7 +76,7 @@ def lambda_handler(event, context):
                 urllib.parse.unquote_plus(s3key)
             )
         elif file_type in valid_video_types:
-            jobid = start_video_label_detection(
+            JobId = start_video_label_detection(
                 s3bucket,
                 urllib.parse.unquote_plus(s3key)
             )
@@ -86,5 +86,5 @@ def lambda_handler(event, context):
             #     output_object.update_status("Error")
             #     output_object.update_metadata(transcribe_error="Not a valid file type")
             #     raise MasExecutionError(output_object.return_output_object())
-    return {"response": response, "jobid": jobid}
+    return {"response": response, "JobId": JobId}
 

@@ -63,10 +63,6 @@ Resources:
                 Resource: "arn:aws:lambda:*:*:function:*"
                 Effect: "Allow"
 
-  # SQS queue for checking Rekognition job status:
-  sqsRekognitionQueue:
-    Type: "AWS::SQS::Queue"
-
   # SNS topic for storing the output of async Rekognition jobs:
   snsRekognitionTopic:
     Type: "AWS::SNS::Topic"
@@ -78,6 +74,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "start_rekognition.lambda_handler"
+      Layers:
+        - "arn:aws:lambda:us-west-2:658937807431:layer:boto3_chalice_python_37:1"
       Role: !GetAtt "rekognitionRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -86,7 +84,6 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          "REKOGNITION_SQS_QUEUE_URL": !Ref "sqsRekognitionQueue"
           "REKOGNITION_SNS_TOPIC_ARN": !Ref "snsRekognitionTopic"
           "REKOGNITION_ROLE_ARN": !GetAtt "rekognitionRole.Arn"
 
@@ -94,6 +91,8 @@ Resources:
     Type: "AWS::Lambda::Function"
     Properties:
       Handler: "get_rekognition_status.lambda_handler"
+      Layers:
+        - "arn:aws:lambda:us-west-2:658937807431:layer:boto3_chalice_python_37:1"
       Role: !GetAtt "rekognitionRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
@@ -102,8 +101,6 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          "REKOGNITION_SQS_QUEUE_URL": !Ref "sqsRekognitionQueue"
-          "REKOGNITION_SNS_TOPIC_ARN": !Ref "snsRekognitionTopic"
           "REKOGNITION_ROLE_ARN": !GetAtt "rekognitionRole.Arn"
 
   # Step Functions:
@@ -175,12 +172,12 @@ Resources:
                   "Type": "Choice",
                   "Choices": [{
                           "Variable": "$.status",
-                          "StringEquals": "Incomplete",
+                          "StringEquals": "IN_PROGRESS",
                           "Next": "rekognition Wait"
                       },
                       {
                           "Variable": "$.status",
-                          "StringEquals": "Complete",
+                          "StringEquals": "SUCCEEDED",
                           "Next": "rekognition Succeeded"
                       }
                   ],
