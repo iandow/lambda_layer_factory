@@ -90,13 +90,13 @@ Resources:
   checkRekognitionFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      Handler: "get_rekognition_status.lambda_handler"
+      Handler: "check_rekognition_status.lambda_handler"
       Layers:
         - "arn:aws:lambda:us-west-2:658937807431:layer:boto3_chalice_python_37:1"
       Role: !GetAtt "rekognitionRole.Arn"
       Code:
         S3Bucket: !FindInMap ["SourceCode", "General", "S3Bucket"]
-        S3Key: "get_rekognition_status.zip"
+        S3Key: "check_rekognition_status.zip"
       Runtime: "python3.7"
       Timeout: 300
       Environment:
@@ -171,12 +171,12 @@ Resources:
               "Did rekognition Complete": {
                   "Type": "Choice",
                   "Choices": [{
-                          "Variable": "$.status",
+                          "Variable": "$.JobStatus",
                           "StringEquals": "IN_PROGRESS",
                           "Next": "rekognition Wait"
                       },
                       {
-                          "Variable": "$.status",
+                          "Variable": "$.JobStatus",
                           "StringEquals": "SUCCEEDED",
                           "Next": "rekognition Succeeded"
                       }

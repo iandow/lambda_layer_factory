@@ -3,7 +3,7 @@
 #   Lambda function to check Rekognition video labeling job status
 #
 # INPUT:
-#   event.JobId should contain the job id to check status of.
+#   event.JobId = the job id to check status of.
 #
 # RETURNS:
 #   IN_PROGRESS if job is still running
@@ -18,6 +18,9 @@ import boto3
 
 def lambda_handler(event, context):
     print(event)
+    # Images will have already been processed, so return if job status is already set.
+    if event['JobStatus'] == "SUCCEEDED":
+        return {"JobStatus": "SUCCEEDED"}
     JobId=event['JobId']
     rek = boto3.client('rekognition')
     maxResults = 1000
@@ -29,10 +32,10 @@ def lambda_handler(event, context):
                                            MaxResults=maxResults,
                                            NextToken=paginationToken,
                                            SortBy='TIMESTAMP')
-        if response['JobStatus']== "IN_PROGRESS":
-            return {"status": "IN_PROGRESS", "JobId": JobId}
+        if response['JobStatus'] == "IN_PROGRESS":
+            return {"JobStatus": "IN_PROGRESS", "JobId": JobId}
 
-        elif response['JobStatus']== "SUCCEEDED":
+        elif response['JobStatus'] == "SUCCEEDED":
 
             print(response['VideoMetadata']['Codec'])
             print(str(response['VideoMetadata']['DurationMillis']))
@@ -65,8 +68,8 @@ def lambda_handler(event, context):
                 else:
                     finished = True
 
-            return {"status": "SUCCEEDED"}
+            return {"JobStatus": "SUCCEEDED"}
 
-        return {"status": "ERROR"}
+        return {"JobStatus": "ERROR"}
 
 

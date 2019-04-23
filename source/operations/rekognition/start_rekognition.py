@@ -3,7 +3,28 @@
 #   Lambda function to perform Rekognition tasks on image and video files
 #
 # SAMPLE INPUT:
-#     {"media": {"file": [{"s3bucket": "ianwow","s3key": "my_image-gray.jpg"}]}}
+# {
+#     "metadata": {},
+#     "configuration": {
+#         "%%OPERATOR_NAME%%": {
+#
+#         }
+#     },
+#     "workflow_execution_id": "%%SOME_WORKFLOW_ID%%",
+#     "asset_id": "%%SOME_ASSET_ID%%",
+#     "name": "%%OPERATOR_NAME%%",
+#     "metrics": {},
+#     "status": "%%SOME_VALID_STATUS%%",
+#     "input": {
+#         "metadata": {},
+#         "media": {
+#             "file": {
+#                 "s3bucket": "ianwow",
+#                 "s3key": "hockey.mp4"
+#             }
+#         }
+#     }
+# }
 #
 # SAMPLE DEPLOY:
 #   cd source/operations/rekognition/
@@ -38,7 +59,7 @@ def start_image_label_detection(bucket, key):
     print('Detected labels for ' + key)
     for label in response['Labels']:
         print (label['Name'] + ' : ' + str(label['Confidence']))
-    return response['Labels']
+    return {"JobStatus": "SUCCEEDED"}
 
 # Code for calling Rekognition Video operations
 # Reference: https://docs.aws.amazon.com/code-samples/latest/catalog/python-rekognition-rekognition-video-python-stored-video.py.html
@@ -62,29 +83,25 @@ def start_video_label_detection(bucket, key):
 def lambda_handler(event, context):
     JobId=''
     response=''
-    for record in event['media']['file']:
-        s3bucket = record['s3bucket']
-        s3key = record['s3key']
-        print("Processing s3://"+s3bucket+"/"+s3key)
-        valid_video_types = [".avi", ".mp4", ".mov"]
-        valid_image_types = [".png", ".jpg", ".jpeg"]
-        file_type = os.path.splitext(s3key)[1]
 
-        if file_type in valid_image_types:
-            response = start_image_label_detection(
-                s3bucket,
-                urllib.parse.unquote_plus(s3key)
-            )
-        elif file_type in valid_video_types:
-            JobId = start_video_label_detection(
-                s3bucket,
-                urllib.parse.unquote_plus(s3key)
-            )
-        else:
-            print("ERROR: invalid file type")
-            #TODO: uncomment this after you figure out how to import mas_helper
-            #     output_object.update_status("Error")
-            #     output_object.update_metadata(transcribe_error="Not a valid file type")
-            #     raise MasExecutionError(output_object.return_output_object())
-    return {"response": response, "JobId": JobId}
+    s3bucket = event["input"]["media"]["file"]["s3bucket"]
+    s3key = event["input"]["media"]["file"]["s3key"]
+    print("Processing s3://"+s3bucket+"/"+s3key)
+    valid_video_types = [".avi", ".mp4", ".mov"]
+    valid_image_types = [".png", ".jpg", ".jpeg"]
+    file_type = os.path.splitext(s3key)[1]
+
+    if file_type in valid_image_types:
+        response = start_image_label_detection(s3bucket, urllib.parse.unquote_plus(s3key))
+        return {"JobStatus": "SUCCEEDED"}
+    elif file_type in valid_video_types:
+        JobId = start_video_label_detection(s3bucket, urllib.parse.unquote_plus(s3key))
+        return {"JobStatus": "IN_PROGRESS", "JobId": JobId}
+    else:
+        print("ERROR: invalid file type")
+        #TODO: uncomment this after you figure out how to import mas_helper
+        #     output_object.update_status("Error")
+        #     output_object.update_metadata(transcribe_error="Not a valid file type")
+        #     raise MasExecutionError(output_object.return_output_object())
+    return {"JobStatus": "ERROR"}
 
