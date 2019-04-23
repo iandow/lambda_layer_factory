@@ -5,7 +5,7 @@ This project creates AWS Lambda layers for user-specified Python libraries. Two 
 ## USAGE:
 
 ### Preliminary AWS CLI Setup: 
-1. Install [Docker](https://docs.docker.com/), the [AWS CLI](https://aws.amazon.com/cli/), and [jq](https://stedolan.github.io/jq/) on your workstation.
+1. Install [Docker](https://docs.docker.com/) and the [AWS CLI](https://aws.amazon.com/cli/) on your workstation.
 2. Setup credentials for AWS CLI (see http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
 3. Create IAM Role with Lambda and S3 access:
 ```
@@ -37,7 +37,7 @@ docker run --rm -it -v $(pwd):/packages lambda_layer_factory
 ### Publish Lambda layers
 Publish Lambda layers to your AWS account like this:
 ```
-ACCOUNT_ID=$(aws sts get-caller-identity | jq -r ".Account")
+ACCOUNT_ID=$(aws sts get-caller-identity --output text --query 'Account')
 LAMBDA_LAYERS_BUCKET=lambda-layers-$ACCOUNT_ID
 LAYER_NAME=lambda_layer-python36
 aws s3 mb s3://$LAMBDA_LAYERS_BUCKET
@@ -50,10 +50,9 @@ aws lambda publish-layer-version --layer-name $LAYER_NAME --content S3Bucket=$LA
 
 Validate that the Lambda layers were created
 ```
-aws lambda list-layer-versions --layer-name lambda_layer-python36 | jq
-aws lambda list-layer-versions --layer-name lambda_layer-python37 | jq
+aws lambda list-layer-versions --layer-name lambda_layer-python36 --output text --query 'LayerVersions[0].LayerVersionArn'
+aws lambda list-layer-versions --layer-name lambda_layer-python37 --output text --query 'LayerVersions[0].LayerVersionArn'
 ```
-
 ### Clean up build environment
 ```
 aws s3 rm s3://$LAMBDA_LAYERS_BUCKET/lambda_layer-python3.6.zip
